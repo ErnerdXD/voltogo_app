@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 const String supabaseUrl = 'https://ejeseyuqdubakwqnzjbz.supabase.co';
 const String supabaseKey = 'sb_secret_DW5bmUizDnD6Wca9-eG-wg_EGpabMnn';
+//boom
 
 void main() {
   runApp(const MyApp());
