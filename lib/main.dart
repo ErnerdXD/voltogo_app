@@ -26,9 +26,8 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'VoltoGo',
-      debugShowCheckedModeBanner: false, // Cleaner look for your presentation
+      debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        // 4. Fixed the syntax error here
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
         useMaterial3: true,
       ),
