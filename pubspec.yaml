@@ -36,10 +36,10 @@ dependencies:
   cupertino_icons: ^1.0.8
   lottie: ^3.3.2
   animated_splash_screen: ^1.3.0
+  go_router: ^14.8.1
   supabase_flutter: ^2.12.1
-  go_router: ^14.0.0      # For lib/app.dart navigation
-  flutter_riverpod: ^2.5.1 # (Or provider) for lib/providers/
-  flutter_dotenv: ^5.1.0   # To read your new .env file
+  flutter_dotenv: ^5.1.0
+  flutter_riverpod: ^2.6.1
 
 dev_dependencies:
   flutter_test:
@@ -65,7 +65,8 @@ flutter:
 
   assets:
     - assets/ev-charging.json
-    - .env
+    - assets/branding/voltogo_icon.png
+    - assets/branding/voltogo.png
 
   # To add assets to your application, add an assets section, like this:
   # assets:

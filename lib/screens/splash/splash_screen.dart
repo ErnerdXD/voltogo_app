@@ -18,7 +18,7 @@ class AnimatedSplashScreenWidget extends StatelessWidget {
         ),
       ),
       screenFunction: () async {
-        // Use GoRouter to navigate to the /map route.
+        await Future.delayed(const Duration(seconds: 3));
         // This ensures the MainShell (with the bottom navigation bar) is loaded.
         if (context.mounted) {
           context.go('/map');
@@ -31,3 +31,4 @@ class AnimatedSplashScreenWidget extends StatelessWidget {
     );
   }
 }
+

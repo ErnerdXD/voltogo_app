@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:voltogo_app/splash_screen.dart';
+import 'package:voltogo_app/screens/splash/splash_screen.dart';
 import 'package:voltogo_app/screens/discovery/map_screen.dart';
 import 'package:voltogo_app/screens/reservation/activity_screen.dart';
 import 'package:voltogo_app/screens/payment/dashboard_screen.dart';
