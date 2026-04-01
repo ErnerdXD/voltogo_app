@@ -1,0 +1,1 @@
+// slot_model.dart

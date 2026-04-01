@@ -1,16 +1,14 @@
 import 'package:flutter/material.dart';
 
-
-class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
+class MapScreen extends StatefulWidget {
+  const MapScreen({super.key, required this.title});
   final String title;
 
   @override
-  State<MyHomePage> createState() => _MyHomePageState();
+  State<MapScreen> createState() => _MapScreenState();
 }
 
-class _MyHomePageState extends State<MyHomePage> {
-
+class _MapScreenState extends State<MapScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -18,11 +16,11 @@ class _MyHomePageState extends State<MyHomePage> {
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
         title: Text(widget.title),
       ),
-      body: Center(
+      body: const Center(
         child: Column(
-          mainAxisAlignment: .center,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Text('You have pushed the button this many times:')
+            Text('Map Screen Placeholder'),
           ],
         ),
       ),
