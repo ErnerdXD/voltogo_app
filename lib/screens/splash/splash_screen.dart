@@ -18,17 +18,23 @@ class AnimatedSplashScreenWidget extends StatelessWidget {
         ),
       ),
       screenFunction: () async {
+        // Wait for a small duration to ensure the animation shows
         await Future.delayed(const Duration(seconds: 3));
-        // This ensures the MainShell (with the bottom navigation bar) is loaded.
+        
+        // Use Future.microtask to ensure navigation happens after the build
         if (context.mounted) {
-          context.go('/map');
+          Future.microtask(() {
+            if (context.mounted) {
+              context.go('/map');
+            }
+          });
         }
-        // Return a dummy widget; GoRouter's navigation will take over immediately.
-        return const SizedBox.shrink();
+        
+        // Return a dummy widget as the library requires it
+        return const Scaffold(body: SizedBox.shrink());
       },
       splashIconSize: 300,
       splashTransition: SplashTransition.fadeTransition,
     );
   }
 }
-
