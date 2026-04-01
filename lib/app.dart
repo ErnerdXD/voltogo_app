@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:voltogo_app/utils/app_colors.dart';
 import 'package:voltogo_app/utils/app_router.dart';
 
 class MyApp extends StatelessWidget {
@@ -7,11 +8,16 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp.router(
-      title: 'VoltoGo',
+      title: 'Voltogo',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+        colorScheme: ColorScheme.fromSeed(seedColor: AppColors.seed),
         useMaterial3: true,
+        appBarTheme: const AppBarTheme(
+          backgroundColor: AppColors.appBarBackground,
+          foregroundColor: AppColors.onAppBar,
+          elevation: 0,
+        ),
       ),
       routerConfig: goRouter,
     );
