@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:provider/provider.dart';
+import 'providers/reservation_provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:voltogo_app/app.dart';
 
@@ -17,8 +18,9 @@ Future<void> main() async {
   );
 
   runApp(
-    const ProviderScope(
-      child: MyApp(),
+    ChangeNotifierProvider(
+      create: (_) => ReservationProvider(),
+      child: const MyApp(),
     ),
   );
 }

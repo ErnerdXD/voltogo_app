@@ -6,6 +6,7 @@ import 'package:voltogo_app/screens/reservation/activity_screen.dart';
 import 'package:voltogo_app/screens/payment/dashboard_screen.dart';
 import 'package:voltogo_app/screens/user/profile_screen.dart';
 import 'package:voltogo_app/screens/main_shell.dart';
+import 'package:voltogo_app/screens/reservation/reservation_screen.dart';
 
 final GlobalKey<NavigatorState> _rootNavigatorKey = GlobalKey<NavigatorState>();
 
@@ -51,6 +52,14 @@ final goRouter = GoRouter(
             GoRoute(
               path: '/profile',
               builder: (context, state) => const ProfileScreen(),
+            ),
+          ],
+        ),
+        StatefulShellBranch(
+          routes: [
+            GoRoute(
+              path: '/reservation',
+              builder: (context, state) => const ReservationScreen(),
             ),
           ],
         ),

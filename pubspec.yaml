@@ -42,11 +42,12 @@ dependencies:
   go_router: ^17.1.0      # For lib/app.dart navigation
   google_maps_flutter: ^2.17.0
   geolocator: ^14.0.2
+  google_fonts: ^8.0.2
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
-
+  provider: ^6.0.0
   # The "flutter_lints" package below contains a set of recommended lints to
   # encourage good coding practices. The lint set provided by the package is
   # activated in the `analysis_options.yaml` file located at the root of your
@@ -70,6 +71,16 @@ flutter:
     - .env
     - assets/branding/voltogo_icon.png
     - assets/branding/voltogo.png
+    - assets/fonts/
+
+  fonts:
+    - family: Oswald
+      fonts:
+        - asset: assets/fonts/Oswald-Regular.ttf
+        - asset: assets/fonts/Oswald-Bold.ttf
+          weight: 700
+        - asset: assets/fonts/Oswald-Light.ttf
+          weight: 300
 
   # To add assets to your application, add an assets section, like this:
   # assets:

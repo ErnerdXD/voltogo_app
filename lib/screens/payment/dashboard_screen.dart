@@ -7,10 +7,6 @@ class DashboardScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        titleSpacing: 0,
-        title: const BrandAppBarTitle(title: 'Dashboard'),
-      ),
       body: const Center(child: Text('Energy & CO2 Stats')),
     );
   }
