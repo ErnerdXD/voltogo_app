@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:voltogo_app/providers/theme_provider.dart';
 
 class SettingsSheet extends StatelessWidget {
-  const SettingsSheet({Key? key}) : super(key: key);
+  const SettingsSheet({super.key});
 
   @override
   Widget build(BuildContext context) {

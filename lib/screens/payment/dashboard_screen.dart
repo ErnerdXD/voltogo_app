@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:voltogo_app/widgets/brand_app_bar_title.dart';
 
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});

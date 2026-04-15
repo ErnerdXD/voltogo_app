@@ -10,36 +10,33 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      create: (_) => ThemeProvider(),
-      child: Consumer<ThemeProvider>(
-        builder: (context, themeProvider, _) {
-          return MaterialApp.router(
-            title: 'Voltogo',
-            debugShowCheckedModeBanner: false,
-            theme: ThemeData(
-              textTheme: GoogleFonts.dmSansTextTheme(),
-              colorScheme: ColorScheme.fromSeed(seedColor: AppColors.seed),
-              useMaterial3: true,
-              appBarTheme: const AppBarTheme(
-                backgroundColor: AppColors.appBarBackground,
-                foregroundColor: AppColors.onAppBar,
-                elevation: 0,
-              ),
+    return Consumer<ThemeProvider>(
+      builder: (context, themeProvider, _) {
+        return MaterialApp.router(
+          title: 'Voltogo',
+          debugShowCheckedModeBanner: false,
+          theme: ThemeData(
+            textTheme: GoogleFonts.dmSansTextTheme(),
+            colorScheme: ColorScheme.fromSeed(seedColor: AppColors.seed),
+            useMaterial3: true,
+            appBarTheme: const AppBarTheme(
+              backgroundColor: AppColors.appBarBackground,
+              foregroundColor: AppColors.onAppBar,
+              elevation: 0,
             ),
-            darkTheme: ThemeData.dark().copyWith(
-              textTheme: GoogleFonts.dmSansTextTheme(ThemeData.dark().textTheme),
-              appBarTheme: const AppBarTheme(
-                backgroundColor: Colors.black,
-                foregroundColor: Colors.white,
-                elevation: 0,
-              ),
+          ),
+          darkTheme: ThemeData.dark().copyWith(
+            textTheme: GoogleFonts.dmSansTextTheme(ThemeData.dark().textTheme),
+            appBarTheme: const AppBarTheme(
+              backgroundColor: Colors.black,
+              foregroundColor: Colors.white,
+              elevation: 0,
             ),
-            themeMode: themeProvider.themeMode,
-            routerConfig: goRouter,
-          );
-        },
-      ),
+          ),
+          themeMode: themeProvider.themeMode,
+          routerConfig: goRouter,
+        );
+      },
     );
   }
 }

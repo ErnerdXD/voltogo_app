@@ -2,10 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/reservation_provider.dart';
 import '../../models/reservation_model.dart';
-import '../../widgets/brand_app_bar_title.dart'; // Import the BrandAppBarTitle widget
 
 class ReservationScreen extends StatefulWidget {
-  const ReservationScreen({Key? key}) : super(key: key);
+  const ReservationScreen({super.key});
 
   @override
   State<ReservationScreen> createState() => _ReservationScreenState();
