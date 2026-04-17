@@ -48,7 +48,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
     try {
       final notifier = ref.read(profileProvider.notifier);
 
-      // The service now rethrows errors, so if this finishes, it was successful
+      // Await the actual database operation
       await notifier.updateProfile(
         fullName: _nameController.text.trim(),
         phone: _phoneController.text.trim(),
@@ -58,7 +58,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Profile updated successfully!')),
         );
-        // Navigate back immediately after success without the blind delay
+        // Navigate back only after the await finishes
         context.pop();
       }
     } catch (e) {

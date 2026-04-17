@@ -37,26 +37,26 @@ final goRouter = GoRouter(
     // Inside the redirect logic for orphaned sessions
     if (session != null && !isLoggingIn && !isSplash) {
       try {
-        // Use a timeout to prevent the router from hanging if the DB is slow
+        // We add a 3-second timeout to prevent the router from hanging
         final userRecord = await Supabase.instance.client
             .from('users')
-            .select('id') // Only select 'id' to keep the query light
+            .select('id')
             .eq('auth_user_id', session.user.id)
             .maybeSingle()
             .timeout(const Duration(seconds: 3));
 
         if (userRecord == null) {
-          debugPrint('[Router] Orphaned session: Signing out...');
+          debugPrint('[Router] Orphaned session detected. Signing out...');
           await Supabase.instance.client.auth.signOut(scope: SignOutScope.local);
           return '/login';
         }
       } catch (e) {
-        // If the query fails (e.g., rate limit on DB calls),
-        // we let them through to the app rather than logging them out.
-        // They will see the error on the specific screen instead.
-        debugPrint('[Router] DB Check failed: $e');
+        // If the DB check fails (e.g., Timeout or Rate Limit),
+        // we let them through to the app rather than kicking them out.
+        debugPrint('[Router] DB Check bypassed (Rate limit/Slow): $e');
       }
     }
+    // <caret> is here - we move to the next logic blocks
 
     // If on splash screen with valid session, go to map
     if (session != null && isSplash) {

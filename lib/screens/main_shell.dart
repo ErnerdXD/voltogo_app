@@ -48,7 +48,7 @@ class MainShell extends StatelessWidget {
           borderRadius: BorderRadius.circular(28),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.10),
+              color: Colors.black.withOpacity(0.10),
               blurRadius: 16,
               offset: const Offset(0, 4),
             ),

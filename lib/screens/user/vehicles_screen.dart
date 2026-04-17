@@ -39,7 +39,6 @@ class VehiclesScreen extends ConsumerWidget {
                   final vehicle = vehicles[index];
                   return VehicleCard(
                     vehicle: vehicle,
-                    onEdit: () => context.push('/profile/vehicles/edit', extra: vehicle),
                     onDelete: () async {
                       final confirm = await showDialog<bool>(
                         context: context,

@@ -20,18 +20,28 @@ class SupabaseService {
    /// Complete user setup after signup
   Future<void> setupUserAfterSignup(User authUser, {String? fullName}) async {
     try {
-      // Step 1: Create the record in the 'users' table
-      // The SQL policy you ran allows this IF auth_user_id matches the current uid
+      // DEBUG: Verify we are actually authenticated
+      print('[DEBUG] Auth UID: ${authUser.id}');
+      print('[DEBUG] Current User Session: ${_client.auth.currentSession != null}');
+      print('[DEBUG] Current JWT: ${_client.auth.currentSession?.accessToken != null}');
+      // Step 1: Create the record in the 'public.users' table
+      // We NEED the returned 'id' to link to the profile
       final userResponse = await _client.from('users').insert({
         'auth_user_id': authUser.id,
         'role': 'member',
-      }).select().single();
+      }).select('id').single();
 
-      // 2. Use the ID from the users table for the profile
+      final String publicId = userResponse['id'];
+      print('[DEBUG] Public User ID Created: $publicId');
+
+      // Step 2: Create the profile using the PUBLIC ID, not the Auth ID
       await _client.from('profiles').insert({
-        'user_id': userResponse['id'],
+        'user_id': publicId,
         'full_name': fullName ?? authUser.email?.split('@')[0] ?? 'User',
+        'email': _client.auth.currentUser?.email,
       });
+
+      print('[SupabaseService] Setup complete for: $publicId');
     } catch (e) {
       print('[SupabaseService] Setup Error: $e');
       rethrow;
@@ -173,15 +183,19 @@ class SupabaseService {
   /// Read: Fetch all stations
   Future<List<StationModel>> getStations() async {
     try {
+      // This fetches stations AND their related slots using Supabase's join syntax
       final response = await _client
           .from('stations')
-          .select();
+          .select('*, slots(*)');
 
-      return (response as List)
-          .map((json) => StationModel.fromJson(json))
-          .toList();
+      return (response as List).map((json) {
+        // Map the station data
+        final station = StationModel.fromJson(json);
+        // You can also map the 'slots' list here if you add a List<SlotModel>
+        // field to your StationModel
+        return station;
+      }).toList();
     } catch (e) {
-      // ignore: avoid_print
       print('[SupabaseService] Error fetching stations: $e');
       return [];
     }

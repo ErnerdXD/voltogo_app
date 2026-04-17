@@ -63,14 +63,7 @@ class OpenChargeMapService {
     try {
       final radiusMeters = radiusKm * 1000;
       final url = Uri.parse(
-        '$_baseUrl?'
-        'latitude=$latitude&'
-        'longitude=$longitude&'
-        'distance=$radiusMeters&'
-        'distanceunit=M&'
-        'maxresults=$maxResults&'
-        'key=$_apiKey&'
-        'outputtype=json',
+          '$_baseUrl?latitude=$latitude&longitude=$longitude&distance=$radiusKm&distanceunit=KM&maxresults=$maxResults&key=$_apiKey&outputtype=json'
       );
 
       final response = await http.get(url).timeout(

@@ -61,9 +61,12 @@ class _MapScreenState extends ConsumerState<MapScreen> {
       }
     }
   }
-
   Future<void> _loadNearbyStations() async {
+    // Start loading state
+    setState(() => _isLoading = true);
+
     try {
+      // 1. Fetch data from the external API service
       final stations = await _chargingService.getNearbyStations(
         latitude: _currentLocation.latitude,
         longitude: _currentLocation.longitude,
@@ -72,74 +75,75 @@ class _MapScreenState extends ConsumerState<MapScreen> {
 
       if (!mounted) return;
 
-      final markers = <Marker>[];
+      // 2. Map the API response (ChargingStation objects) into FlutterMap Markers
+      final markers = stations.map((station) {
+        return Marker(
+          point: LatLng(station.latitude, station.longitude),
+          width: 60,
+          height: 60,
+          child: GestureDetector(
+            onTap: () => _showStationDetails(station),
+            child: Column(
+              children: [
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.green,
+                    borderRadius: BorderRadius.circular(50),
+                    border: Border.all(color: Colors.white, width: 2),
+                  ),
+                  padding: const EdgeInsets.all(4),
+                  child: const Icon(
+                    Icons.ev_station,
+                    color: Colors.white,
+                    size: 24,
+                  ),
+                ),
+                // Optional: Show points available if data exists
+                if (station.availablePoints != null && station.availablePoints! > 0)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: Colors.black87,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      '${station.availablePoints}',
+                      style: const TextStyle(color: Colors.white, fontSize: 10),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        );
+      }).toList();
 
-      // Add current location marker
+      // 3. Add your current location marker (User's Blue Dot)
       markers.add(
         Marker(
           point: _currentLocation,
+          width: 30,
+          height: 30,
           child: Container(
             decoration: BoxDecoration(
               color: Colors.blue,
-              borderRadius: BorderRadius.circular(50),
+              shape: BoxShape.circle,
               border: Border.all(color: Colors.white, width: 3),
             ),
-            width: 24,
-            height: 24,
           ),
         ),
       );
 
-      // Add station markers
-      for (var station in stations) {
-        markers.add(
-          Marker(
-            point: LatLng(station.latitude, station.longitude),
-            width: 80,
-            height: 80,
-            child: GestureDetector(
-              onTap: () => _showStationDetails(station),
-              child: Column(
-                children: [
-                  Container(
-                    decoration: BoxDecoration(
-                      color: Colors.green,
-                      borderRadius: BorderRadius.circular(50),
-                      border: Border.all(color: Colors.white, width: 2),
-                    ),
-                    padding: const EdgeInsets.all(4),
-                    child: const Icon(Icons.ev_station,
-                        color: Colors.white, size: 20),
-                  ),
-                  if (station.availablePoints != null)
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 4, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: Colors.black87,
-                        borderRadius: BorderRadius.circular(3),
-                      ),
-                      child: Text(
-                        '${station.availablePoints}',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          ),
-        );
-      }
-
-      setState(() => _stationMarkers = markers);
+      // 4. Update the state with the new markers and stop loading
+      setState(() {
+        _stationMarkers = markers;
+        _isLoading = false;
+      });
     } catch (e) {
+      debugPrint('Error loading stations: $e');
       if (mounted) {
+        setState(() => _isLoading = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to load stations: $e')),
+          SnackBar(content: Text('Failed to load charging stations: $e')),
         );
       }
     }
@@ -231,11 +235,16 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                   ),
                   children: [
                     TileLayer(
-                      urlTemplate:
-                          'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                      urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                       userAgentPackageName: 'com.example.voltogo_app',
+                      // This helps prevent some of the silent socket errors from bubbling up
+                      errorTileCallback: (tile, error, stackTrace) {
+                        debugPrint('Tile load error: $error');
+                      },
                     ),
-                    MarkerLayer(markers: _stationMarkers),
+                    MarkerLayer(
+                      markers: _stationMarkers,
+                    ),
                   ],
                 ),
                 // Radius slider
