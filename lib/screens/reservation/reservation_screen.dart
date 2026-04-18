@@ -4,6 +4,8 @@ import '../../providers/reservation_provider.dart';
 import '../../providers/vehicle_provider.dart';
 import '../../providers/station_provider.dart';
 
+final pendingBookingStationProvider = StateProvider<String?>((ref) => null);
+
 class ReservationScreen extends ConsumerStatefulWidget {
   const ReservationScreen({super.key});
 
@@ -15,7 +17,7 @@ class _ReservationScreenState extends ConsumerState<ReservationScreen> {
   String? selectedSlotId;
   String? selectedVehicleId;
 
-  void _showCreateReservationForm(BuildContext context) {
+  void _showCreateReservationForm(BuildContext context, {String? preselectedStationName}) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -50,6 +52,15 @@ class _ReservationScreenState extends ConsumerState<ReservationScreen> {
         }
         String? modalSelectedVehicleId = selectedVehicleId;
         String? modalSelectedSlotId = selectedSlotId;
+        // 3. Try to auto-select a slot that belongs to the tapped station
+        if (modalSelectedSlotId == null && preselectedStationName != null) {
+          final matchingSlots = availableSlots.where(
+                  (s) => s['station_name'] == preselectedStationName
+          );
+          if (matchingSlots.isNotEmpty) {
+            modalSelectedSlotId = matchingSlots.first['id'];
+          }
+        }
         DateTime? selectedDate;
         TimeOfDay? selectedStartTime;
         TimeOfDay? selectedEndTime;
@@ -360,6 +371,7 @@ class _ReservationScreenState extends ConsumerState<ReservationScreen> {
       },
     );
   }
+
   @override
   void initState() {
     super.initState();
@@ -375,6 +387,17 @@ class _ReservationScreenState extends ConsumerState<ReservationScreen> {
     final vehiclesAsync = ref.watch(vehicleProvider);
     final stationsAsync = ref.watch(stationsProvider);
 
+    // ADD THIS LISTENER: It listens for a signal from the Map tab
+    ref.listen<String?>(pendingBookingStationProvider, (previous, next) {
+      if (next != null) {
+        // Wait for the tab switch animation to finish, then show the form
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _showCreateReservationForm(context, preselectedStationName: next);
+          // Clear the signal so it doesn't keep popping up every time you rebuild
+          ref.read(pendingBookingStationProvider.notifier).state = null;
+        });
+      }
+    });
     // Extract available slots from stations
     List<Map<String, String>> availableSlots = [];
     if (stationsAsync is AsyncData) {

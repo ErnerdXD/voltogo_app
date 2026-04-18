@@ -7,6 +7,7 @@ import 'package:voltogo_app/services/open_charge_map_service.dart';
 import 'dart:math' as math;
 import 'dart:async';
 import 'package:flutter_compass/flutter_compass.dart';
+import 'package:voltogo_app/screens/discovery/station_detail_screen.dart';
 
 class MapScreen extends ConsumerStatefulWidget {
   const MapScreen({super.key, required this.title});
@@ -25,6 +26,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   List<Marker> _stationMarkers = [];
   double _radiusKm = 5.0;
   bool _isLoading = false;
+  bool _isRadiusExpanded = false;
 
   double? _heading;
   StreamSubscription<CompassEvent>? _compassSubscription;
@@ -39,9 +41,6 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   // Initialize the Compass Listener
   void _initCompass() {
     _compassSubscription = FlutterCompass.events?.listen((event) {
-      // Debugging: check if sensor is actually firing
-      debugPrint('Compass Heading: ${event.heading}');
-
       if (mounted && event.heading != null) {
         setState(() {
           _heading = event.heading;
@@ -88,7 +87,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     setState(() => _isLoading = true);
 
     try {
-      // 1. Fetch data from OpenChargeMap (with the new headers)
+      // 1. Fetch data from OpenChargeMap
       final stations = await _chargingService.getNearbyStations(
         latitude: _currentLocation.latitude,
         longitude: _currentLocation.longitude,
@@ -162,60 +161,24 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     }
   }
 
-  void _showStationDetails(ChargingStation station) {
-    showModalBottomSheet(
+  void _showStationDetails(ChargingStation station) async {
+    // Wait to see what the user pressed in the bottom sheet
+    final shouldLocate = await showModalBottomSheet<bool>(
       context: context,
-      builder: (context) => Container(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              station.name,
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-            const SizedBox(height: 8),
-            if (station.address != null)
-              Text(
-                station.address!,
-                style: Theme.of(context).textTheme.bodyMedium,
-              ),
-            const SizedBox(height: 8),
-            if (station.availablePoints != null)
-              Text(
-                'Available Points: ${station.availablePoints}',
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-            if (station.connectorTypes != null &&
-                station.connectorTypes!.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Connector Types:',
-                      style: Theme.of(context).textTheme.labelSmall,
-                    ),
-                    ...station.connectorTypes!
-                        .map((type) => Text('• $type',
-                            style: Theme.of(context).textTheme.bodySmall)),
-                  ],
-                ),
-              ),
-            const SizedBox(height: 16),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Close'),
-              ),
-            ),
-          ],
-        ),
-      ),
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => StationDetailSheet(station: station),
     );
+
+    // If they clicked Locate, move the map!
+    if (shouldLocate == true) {
+      // Zoom in tight (level 16 or 17) and snap upright
+      _mapController.moveAndRotate(
+          LatLng(station.latitude, station.longitude),
+          16.5,
+          0
+      );
+    }
   }
 
   @override
@@ -254,7 +217,6 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                     MarkerLayer(
                       markers: [
                         ..._stationMarkers,
-
                         Marker(
                           point: _currentLocation,
                           width: 60,
@@ -266,66 +228,86 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                     ),
                   ],
                 ),
-                // Radius slider
+
+                // Unified Bottom Controls
                 Positioned(
                   bottom: 20,
                   left: 20,
                   right: 20,
-                  child: Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.1),
-                          blurRadius: 8,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      FloatingActionButton(
+                        heroTag: 'locator_fab',
+                        onPressed: () {
+                          _mapController.moveAndRotate(_currentLocation, 14, 0);
+                        },
+                        child: const Icon(Icons.my_location),
+                        tooltip: 'Recentre and Reset Orientation',
+                      ),
+                      const SizedBox(height: 16),
+                      if (!_isRadiusExpanded)
+                        FloatingActionButton.extended(
+                          heroTag: 'radius_fab',
+                          onPressed: () => setState(() => _isRadiusExpanded = true),
+                          icon: const Icon(Icons.radar),
+                          label: Text('${_radiusKm.toStringAsFixed(1)} km'),
+                        )
+                      else
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.1),
+                                blurRadius: 8,
+                              ),
+                            ],
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    'Search Radius: ${_radiusKm.toStringAsFixed(1)} km',
+                                    style: Theme.of(context).textTheme.labelLarge,
+                                  ),
+                                  InkWell(
+                                    onTap: () => setState(() => _isRadiusExpanded = false),
+                                    child: const Icon(Icons.close, color: Colors.grey),
+                                  ),
+                                ],
+                              ),
+                              Slider(
+                                value: _radiusKm,
+                                min: 1,
+                                max: 25,
+                                divisions: 24,
+                                onChanged: (value) {
+                                  setState(() => _radiusKm = value);
+                                  _loadNearbyStations();
+                                },
+                              ),
+                              Text(
+                                'Stations found: ${_stationMarkers.length}',
+                                style: Theme.of(context).textTheme.bodySmall,
+                              ),
+                            ],
+                          ),
                         ),
-                      ],
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Search Radius: ${_radiusKm.toStringAsFixed(1)} km',
-                          style: Theme.of(context).textTheme.labelLarge,
-                        ),
-                        Slider(
-                          value: _radiusKm,
-                          min: 1,
-                          max: 25,
-                          divisions: 24,
-                          onChanged: (value) {
-                            setState(() => _radiusKm = value);
-                            _loadNearbyStations();
-                          },
-                        ),
-                        Text(
-                          'Stations found: ${_stationMarkers.length - 1}',
-                          style: Theme.of(context).textTheme.bodySmall,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                // Locator FAB
-                Positioned(
-                  bottom: 100,
-                  right: 20,
-                  child: FloatingActionButton(
-                    heroTag: 'locator_fab',
-                    onPressed: () {
-                      _mapController.moveAndRotate(_currentLocation, 14, 0);
-                    },
-                    child: const Icon(Icons.my_location),
-                    tooltip: 'Recentre and Reset Orientation',
+                    ],
                   ),
                 ),
               ],
-            ),
+      ),
     );
   }
-
   // helper method to build the rotating blue dot
   Widget _buildUserLocationMarker() {
     return Transform.rotate(
