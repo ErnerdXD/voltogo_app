@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:voltogo_app/models/profile_model.dart';
 import 'package:voltogo_app/models/vehicle_model.dart';
 import 'package:voltogo_app/models/station_model.dart';
+import 'package:voltogo_app/models/reservation_model.dart';
 
 class SupabaseService {
   // Singleton pattern for the service
@@ -198,6 +199,78 @@ class SupabaseService {
     } catch (e) {
       print('[SupabaseService] Error fetching stations: $e');
       return [];
+    }
+  }
+
+  // --- RESERVATION CRUD (Module 3) ---
+
+  /// Fetch all reservations for the current user
+  Future<List<ReservationModel>> getUserReservations() async {
+    final user = currentUser;
+    if (user == null) return [];
+    try {
+      // Get the user's public.users.id
+      final userRecord = await _client
+          .from('users')
+          .select('id')
+          .eq('auth_user_id', user.id)
+          .single();
+      final userId = userRecord['id'];
+      final response = await _client
+          .from('reservations')
+          .select('*')
+          .eq('user_id', userId)
+          .order('start_time', ascending: false);
+      return (response as List)
+          .map((json) => ReservationModel.fromJson(json))
+          .toList();
+    } catch (e) {
+      print('[SupabaseService] Error fetching reservations: $e');
+      return [];
+    }
+  }
+
+  /// Create a new reservation
+  Future<void> createReservation({
+    required String slotId,
+    required String vehicleId,
+    required DateTime startTime,
+    required DateTime endTime,
+  }) async {
+    final user = currentUser;
+    if (user == null) throw Exception('No user logged in');
+    try {
+      // Get the user's public.users.id
+      final userRecord = await _client
+          .from('users')
+          .select('id')
+          .eq('auth_user_id', user.id)
+          .single();
+      final userId = userRecord['id'];
+      await _client.from('reservations').insert({
+        'user_id': userId,
+        'slot_id': slotId,
+        'vehicle_id': vehicleId,
+        'start_time': startTime.toIso8601String(),
+        'end_time': endTime.toIso8601String(),
+        'status': 'active',
+      });
+    } catch (e) {
+      print('[SupabaseService] Error creating reservation: $e');
+      throw Exception('Failed to create reservation: $e');
+    }
+  }
+
+  /// Cancel a reservation (set status to 'cancelled')
+  Future<void> cancelReservation(String reservationId) async {
+    try {
+      await _client
+          .from('reservations')
+          .update({'status': 'cancelled'})
+          .eq('id', reservationId);
+    } catch (e) {
+      print('[SupabaseService] Error cancelling reservation: $e');
+      throw Exception('Failed to cancel reservation: $e');
     }
   }
 }

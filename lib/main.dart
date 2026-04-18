@@ -1,11 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:provider/provider.dart' as provider_pkg;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:voltogo_app/app.dart';
-import 'package:voltogo_app/providers/reservation_provider.dart';
-import 'package:voltogo_app/providers/theme_provider.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -21,13 +18,7 @@ Future<void> main() async {
 
   runApp(
     ProviderScope(
-      child: provider_pkg.MultiProvider(
-        providers: [
-          provider_pkg.ChangeNotifierProvider(create: (_) => ReservationProvider()),
-          provider_pkg.ChangeNotifierProvider(create: (_) => ThemeProvider()),
-        ],
-        child: const MyApp(),
-      ),
+      child: const MyApp(),
     ),
   );
 }

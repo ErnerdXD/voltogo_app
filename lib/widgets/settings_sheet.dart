@@ -38,10 +38,6 @@ class SettingsSheet extends StatelessWidget {
                   value: 'English',
                   child: Text('English'),
                 ),
-                DropdownMenuItem<String>(
-                  value: 'Mandarin',
-                  child: Text('Mandarin (简体中文)'),
-                ),
               ],
               onChanged: (_) {},
             ),

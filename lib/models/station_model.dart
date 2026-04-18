@@ -1,3 +1,5 @@
+import 'package:voltogo_app/models/slot_model.dart';
+
 class StationModel {
   const StationModel({
 	required this.id,
@@ -9,6 +11,7 @@ class StationModel {
 	this.totalSlots,
 	this.status,
 	this.createdBy,
+	this.slots,
   });
 
   final String id;
@@ -20,6 +23,7 @@ class StationModel {
   final int? totalSlots;
   final String? status;
   final String? createdBy;
+  final List<SlotModel>? slots;
 
   factory StationModel.fromJson(Map<String, dynamic> json) {
 	return StationModel(
@@ -32,6 +36,7 @@ class StationModel {
 	  totalSlots: _parseInt(json['total_slots']),
 	  status: json['status'] as String?,
 	  createdBy: json['created_by']?.toString(),
+	  slots: (json['slots'] as List?)?.map((e) => SlotModel.fromJson(e as Map<String, dynamic>)).toList(),
 	);
   }
 
@@ -46,6 +51,7 @@ class StationModel {
 	  'total_slots': totalSlots,
 	  'status': status,
 	  'created_by': createdBy,
+	  'slots': slots?.map((e) => e.toJson()).toList(),
 	};
   }
 
@@ -59,6 +65,7 @@ class StationModel {
 	int? totalSlots,
 	String? status,
 	String? createdBy,
+	List<SlotModel>? slots,
   }) {
 	return StationModel(
 	  id: id ?? this.id,
@@ -70,6 +77,7 @@ class StationModel {
 	  totalSlots: totalSlots ?? this.totalSlots,
 	  status: status ?? this.status,
 	  createdBy: createdBy ?? this.createdBy,
+	  slots: slots ?? this.slots,
 	);
   }
 

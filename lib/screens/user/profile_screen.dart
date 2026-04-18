@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:voltogo_app/providers/auth_provider.dart';
+import '../../providers/theme_provider.dart';
 
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
@@ -11,6 +12,7 @@ class ProfileScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final profileAsync = ref.watch(profileProvider);
     final authUser = ref.watch(authUserProvider);
+    final themeMode = ref.watch(themeProvider);
 
     return Scaffold(
       body: profileAsync.when(
@@ -70,6 +72,47 @@ class ProfileScreen extends ConsumerWidget {
                 child: OutlinedButton(
                   onPressed: () => context.push('/profile/vehicles'),
                   child: const Text('My Vehicles'),
+                ),
+              ),
+
+              const SizedBox(height: 12),
+
+              // Settings Button
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  icon: const Icon(Icons.settings),
+                  label: const Text('Settings'),
+                  onPressed: () {
+                    // TODO: Navigate to settings page or show settings dialog
+                    showDialog(
+                      context: context,
+                      builder: (ctx) => AlertDialog(
+                        title: const Text('Settings'),
+                        content: const Text('Settings options go here.'),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.of(ctx).pop(),
+                            child: const Text('Close'),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(height: 12),
+
+              // Theme Switch Button
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  icon: Icon(themeMode == ThemeMode.dark ? Icons.dark_mode : Icons.light_mode),
+                  label: Text(themeMode == ThemeMode.dark ? 'Switch to Light Mode' : 'Switch to Dark Mode'),
+                  onPressed: () {
+                    ref.read(themeProvider.notifier).state =
+                        themeMode == ThemeMode.dark ? ThemeMode.light : ThemeMode.dark;
+                  },
                 ),
               ),
 

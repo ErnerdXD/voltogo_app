@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:voltogo_app/widgets/brand_app_bar_title.dart';
 import 'package:voltogo_app/widgets/settings_sheet.dart';
 
 class MainShell extends StatelessWidget {
@@ -21,25 +20,7 @@ class MainShell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        titleSpacing: 0,
-        title: const BrandAppBarTitle(),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.settings),
-            tooltip: 'Settings',
-            onPressed: () async {
-              showModalBottomSheet(
-                context: context,
-                shape: const RoundedRectangleBorder(
-                  borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-                ),
-                builder: (context) => const SettingsSheet(),
-              );
-            },
-          ),
-        ],
-      ),
+      // AppBar removed for a fully immersive experience
       body: navigationShell,
       bottomNavigationBar: Container(
         margin: const EdgeInsets.only(left: 16, right: 16, bottom: 16),

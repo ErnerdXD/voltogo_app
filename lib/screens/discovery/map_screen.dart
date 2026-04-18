@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:voltogo_app/services/location_service.dart';
 import 'package:voltogo_app/services/open_charge_map_service.dart';
-import 'package:voltogo_app/widgets/brand_app_bar_title.dart';
 
 class MapScreen extends ConsumerStatefulWidget {
   const MapScreen({super.key, required this.title});
@@ -208,19 +207,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        titleSpacing: 0,
-        title: const BrandAppBarTitle(),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.my_location),
-            tooltip: 'Center to current location',
-            onPressed: () {
-              _mapController.move(_currentLocation, 14);
-            },
-          ),
-        ],
-      ),
+      // AppBar and all top bars completely removed
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : Stack(
@@ -237,7 +224,6 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                     TileLayer(
                       urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                       userAgentPackageName: 'com.example.voltogo_app',
-                      // This helps prevent some of the silent socket errors from bubbling up
                       errorTileCallback: (tile, error, stackTrace) {
                         debugPrint('Tile load error: $error');
                       },
@@ -259,7 +245,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                       borderRadius: BorderRadius.circular(12),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.1),
+                          color: Colors.black.withOpacity(0.1),
                           blurRadius: 8,
                         ),
                       ],
@@ -287,6 +273,19 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                         ),
                       ],
                     ),
+                  ),
+                ),
+                // Locator FAB
+                Positioned(
+                  bottom: 100,
+                  right: 20,
+                  child: FloatingActionButton(
+                    heroTag: 'locator_fab',
+                    onPressed: () {
+                      _mapController.move(_currentLocation, 14);
+                    },
+                    child: const Icon(Icons.my_location),
+                    tooltip: 'Center to current location',
                   ),
                 ),
               ],
