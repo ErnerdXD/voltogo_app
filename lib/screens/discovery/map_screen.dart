@@ -103,6 +103,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
           point: LatLng(station.latitude, station.longitude),
           width: 60,
           height: 60,
+          rotate: true,
           child: GestureDetector(
             onTap: () => _showStationDetails(station),
             child: Column(
@@ -220,7 +221,6 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // AppBar and all top bars completely removed
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : Stack(
@@ -233,9 +233,9 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                     maxZoom: 18.0,
                     minZoom: 5.0,
                     interactionOptions: const InteractionOptions(
-                      flags: InteractiveFlag.all, // Re-enables rotation
-                      rotationThreshold: 25.0,    // But ignores slight accidental twists
-                      pinchZoomThreshold: 0.5,    // Makes zooming smoother
+                      flags: InteractiveFlag.all,
+                      rotationThreshold: 20.0,
+                      pinchZoomThreshold: 0.5,
                     ),
                   ),
                   children: [
@@ -253,13 +253,13 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                     ),
                     MarkerLayer(
                       markers: [
-                        ..._stationMarkers, // These are the charging stations
+                        ..._stationMarkers,
 
-                        // ADD THIS: The User Marker added separately
                         Marker(
                           point: _currentLocation,
                           width: 60,
                           height: 60,
+                          rotate: false,
                           child: _buildUserLocationMarker(), // Calling the helper method below
                         ),
                       ],
@@ -315,10 +315,10 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                   child: FloatingActionButton(
                     heroTag: 'locator_fab',
                     onPressed: () {
-                      _mapController.move(_currentLocation, 14);
+                      _mapController.moveAndRotate(_currentLocation, 14, 0);
                     },
                     child: const Icon(Icons.my_location),
-                    tooltip: 'Center to current location',
+                    tooltip: 'Recentre and Reset Orientation',
                   ),
                 ),
               ],
@@ -340,7 +340,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
               top: 0,
               child: Icon(
                 Icons.navigation,
-                color: Colors.blue.withValues(alpha: 0.5),
+                color: Colors.blue.withValues(alpha: 0.7),
                 size: 32,
               ),
             ),
