@@ -66,7 +66,13 @@ class OpenChargeMapService {
           '$_baseUrl?latitude=$latitude&longitude=$longitude&distance=$radiusKm&distanceunit=KM&maxresults=$maxResults&key=$_apiKey&outputtype=json'
       );
 
-      final response = await http.get(url).timeout(
+      final response = await http.get(
+        url,
+        headers: {
+          'User-Agent': 'VoltogoApp/1.0',
+          'Accept': 'application/json',
+        },
+      ).timeout(
         const Duration(seconds: 10),
         onTimeout: () => throw Exception('Request timeout'),
       );
@@ -77,7 +83,7 @@ class OpenChargeMapService {
             .map((station) => ChargingStation.fromJson(station))
             .toList();
       } else {
-        throw Exception('Failed to load stations: ${response.statusCode}');
+        throw Exception('Server Error ${response.statusCode}: ${response.body}');
       }
     } catch (e) {
       throw Exception('Error fetching charging stations: $e');

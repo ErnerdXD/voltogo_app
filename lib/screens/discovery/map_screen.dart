@@ -4,6 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:voltogo_app/services/location_service.dart';
 import 'package:voltogo_app/services/open_charge_map_service.dart';
+import 'dart:math' as math;
+import 'dart:async';
+import 'package:flutter_compass/flutter_compass.dart';
 
 class MapScreen extends ConsumerStatefulWidget {
   const MapScreen({super.key, required this.title});
@@ -23,15 +26,34 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   double _radiusKm = 5.0;
   bool _isLoading = false;
 
+  double? _heading;
+  StreamSubscription<CompassEvent>? _compassSubscription;
+
   @override
   void initState() {
     super.initState();
     _initializeLocationAndStations();
+    _initCompass(); // gyro/magnetometer
+  }
+
+  // Initialize the Compass Listener
+  void _initCompass() {
+    _compassSubscription = FlutterCompass.events?.listen((event) {
+      // Debugging: check if sensor is actually firing
+      debugPrint('Compass Heading: ${event.heading}');
+
+      if (mounted && event.heading != null) {
+        setState(() {
+          _heading = event.heading;
+        });
+      }
+    }, onError: (error) {
+      debugPrint('Compass Error: $error');
+    });
   }
 
   Future<void> _initializeLocationAndStations() async {
-    final hasPermission =
-        await _locationService.requestLocationPermission();
+    final hasPermission = await _locationService.requestLocationPermission();
 
     if (!mounted) return;
 
@@ -60,12 +82,13 @@ class _MapScreenState extends ConsumerState<MapScreen> {
       }
     }
   }
+
   Future<void> _loadNearbyStations() async {
-    // Start loading state
+    if (!mounted) return;
     setState(() => _isLoading = true);
 
     try {
-      // 1. Fetch data from the external API service
+      // 1. Fetch data from OpenChargeMap (with the new headers)
       final stations = await _chargingService.getNearbyStations(
         latitude: _currentLocation.latitude,
         longitude: _currentLocation.longitude,
@@ -74,7 +97,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
 
       if (!mounted) return;
 
-      // 2. Map the API response (ChargingStation objects) into FlutterMap Markers
+      // 2. Map the API response into FlutterMap Markers
       final markers = stations.map((station) {
         return Marker(
           point: LatLng(station.latitude, station.longitude),
@@ -89,6 +112,9 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                     color: Colors.green,
                     borderRadius: BorderRadius.circular(50),
                     border: Border.all(color: Colors.white, width: 2),
+                    boxShadow: [
+                      BoxShadow(color: Colors.black26, blurRadius: 4, offset: Offset(0, 2))
+                    ],
                   ),
                   padding: const EdgeInsets.all(4),
                   child: const Icon(
@@ -97,7 +123,6 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                     size: 24,
                   ),
                 ),
-                // Optional: Show points available if data exists
                 if (station.availablePoints != null && station.availablePoints! > 0)
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
@@ -116,33 +141,21 @@ class _MapScreenState extends ConsumerState<MapScreen> {
         );
       }).toList();
 
-      // 3. Add your current location marker (User's Blue Dot)
-      markers.add(
-        Marker(
-          point: _currentLocation,
-          width: 30,
-          height: 30,
-          child: Container(
-            decoration: BoxDecoration(
-              color: Colors.blue,
-              shape: BoxShape.circle,
-              border: Border.all(color: Colors.white, width: 3),
-            ),
-          ),
-        ),
-      );
-
-      // 4. Update the state with the new markers and stop loading
       setState(() {
         _stationMarkers = markers;
         _isLoading = false;
       });
+
+      debugPrint('[MapScreen] Successfully loaded ${markers.length} stations.');
     } catch (e) {
       debugPrint('Error loading stations: $e');
       if (mounted) {
         setState(() => _isLoading = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to load charging stations: $e')),
+          SnackBar(
+            content: Text('Could not load stations. Try again later.'),
+            action: SnackBarAction(label: 'Retry', onPressed: _loadNearbyStations),
+          ),
         );
       }
     }
@@ -219,17 +232,37 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                     initialZoom: 14,
                     maxZoom: 18.0,
                     minZoom: 5.0,
+                    interactionOptions: const InteractionOptions(
+                      flags: InteractiveFlag.all, // Re-enables rotation
+                      rotationThreshold: 25.0,    // But ignores slight accidental twists
+                      pinchZoomThreshold: 0.5,    // Makes zooming smoother
+                    ),
                   ),
                   children: [
                     TileLayer(
                       urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                       userAgentPackageName: 'com.example.voltogo_app',
+                      tileProvider: NetworkTileProvider(
+                        headers: {
+                          'User-Agent': 'VoltogoApp/1.0',
+                        },
+                      ),
                       errorTileCallback: (tile, error, stackTrace) {
                         debugPrint('Tile load error: $error');
                       },
                     ),
                     MarkerLayer(
-                      markers: _stationMarkers,
+                      markers: [
+                        ..._stationMarkers, // These are the charging stations
+
+                        // ADD THIS: The User Marker added separately
+                        Marker(
+                          point: _currentLocation,
+                          width: 60,
+                          height: 60,
+                          child: _buildUserLocationMarker(), // Calling the helper method below
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -293,8 +326,49 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     );
   }
 
+  // helper method to build the rotating blue dot
+  Widget _buildUserLocationMarker() {
+    return Transform.rotate(
+      // Convert degrees from compass to radians for Flutter
+      angle: ((_heading ?? 0) * (math.pi / 180)),
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          // The directional "Beam" pointing UP
+          if (_heading != null)
+            Positioned(
+              top: 0,
+              child: Icon(
+                Icons.navigation,
+                color: Colors.blue.withOpacity(0.5),
+                size: 32,
+              ),
+            ),
+          // The Blue Dot
+          Container(
+            width: 18,
+            height: 18,
+            decoration: BoxDecoration(
+              color: Colors.blue,
+              shape: BoxShape.circle,
+              border: Border.all(color: Colors.white, width: 3),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.blue.withOpacity(0.3),
+                  blurRadius: 8,
+                  spreadRadius: 2,
+                )
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   void dispose() {
+    _compassSubscription?.cancel(); //stop sensor when leave screen
     _mapController.dispose();
     super.dispose();
   }
