@@ -60,10 +60,9 @@ class UserNotifier extends StateNotifier<AsyncValue<UserModel?>> {
 }
 
 final userProvider =
-    StateNotifierProvider<UserNotifier, AsyncValue<UserModel?>>((ref) {
+StateNotifierProvider<UserNotifier, AsyncValue<UserModel?>>((ref) {
   return UserNotifier();
 });
-
 
 
 

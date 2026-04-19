@@ -9,6 +9,7 @@ class ReservationModel {
     this.status,
     this.qrCode,
     this.createdAt,
+    this.currentBattery,
   });
 
   final String id;
@@ -20,6 +21,7 @@ class ReservationModel {
   final String? status;
   final String? qrCode;
   final DateTime? createdAt;
+  final int? currentBattery;
 
   factory ReservationModel.fromJson(Map<String, dynamic> json) {
     return ReservationModel(
@@ -32,6 +34,7 @@ class ReservationModel {
       status: json['status'] as String?,
       qrCode: json['qr_code'] as String?,
       createdAt: _parseDateTime(json['created_at']),
+      currentBattery: json['current_battery'] as int?,
     );
   }
 
@@ -46,6 +49,7 @@ class ReservationModel {
       'status': status,
       'qr_code': qrCode,
       'created_at': createdAt?.toIso8601String(),
+      'current_battery': currentBattery,
     };
   }
 
@@ -59,6 +63,7 @@ class ReservationModel {
     String? status,
     String? qrCode,
     DateTime? createdAt,
+    int? currentBattery,
   }) {
     return ReservationModel(
       id: id ?? this.id,
@@ -70,6 +75,7 @@ class ReservationModel {
       status: status ?? this.status,
       qrCode: qrCode ?? this.qrCode,
       createdAt: createdAt ?? this.createdAt,
+      currentBattery: currentBattery ?? this.currentBattery,
     );
   }
 

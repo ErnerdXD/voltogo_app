@@ -33,39 +33,37 @@ class ProfileNotifier extends StateNotifier<AsyncValue<ProfileModel?>> {
     }
   }
 
-   Future<void> updateProfile({
-     required String fullName,
-     String? phone,
-     String? avatarUrl,
-     String? paymentMethod,
-     String? stripePaymentMethodId,
-   }) async {
-     try {
-       print('[ProfileNotifier] Starting profile update...');
-       final updatedProfile = await _service.updateProfile(
-         fullName: fullName,
-         phone: phone,
-         avatarUrl: avatarUrl,
-         paymentMethod: paymentMethod,
-         stripePaymentMethodId: stripePaymentMethodId,
-       );
-       print('[ProfileNotifier] Update complete, updated profile: $updatedProfile');
-       if (updatedProfile != null) {
-         state = AsyncValue.data(updatedProfile);
-         print('[ProfileNotifier] State updated with new profile');
-       }
-       await Future.delayed(const Duration(milliseconds: 500));
-       print('[ProfileNotifier] Refreshing profile from database...');
-       final refreshedProfile = await _service.getProfile();
-       print('[ProfileNotifier] Refreshed profile: $refreshedProfile');
-       state = AsyncValue.data(refreshedProfile);
-       print('[ProfileNotifier] Profile update flow complete!');
-     } catch (e, st) {
-       print('[ERROR] ProfileNotifier update failed: $e');
-       print('[ERROR] Stack trace: $st');
-       state = AsyncValue.error(e, st);
-     }
-   }
+  Future<void> updateProfile({
+    required String fullName,
+    String? phone,
+    String? avatarUrl,
+    String? paymentMethod,
+  }) async {
+    try {
+      print('[ProfileNotifier] Starting profile update...');
+      final updatedProfile = await _service.updateProfile(
+        fullName: fullName,
+        phone: phone,
+        avatarUrl: avatarUrl,
+        paymentMethod: paymentMethod,
+      );
+      print('[ProfileNotifier] Update complete, updated profile: $updatedProfile');
+      if (updatedProfile != null) {
+        state = AsyncValue.data(updatedProfile);
+        print('[ProfileNotifier] State updated with new profile');
+      }
+      await Future.delayed(const Duration(milliseconds: 500));
+      print('[ProfileNotifier] Refreshing profile from database...');
+      final refreshedProfile = await _service.getProfile();
+      print('[ProfileNotifier] Refreshed profile: $refreshedProfile');
+      state = AsyncValue.data(refreshedProfile);
+      print('[ProfileNotifier] Profile update flow complete!');
+    } catch (e, st) {
+      print('[ERROR] ProfileNotifier update failed: $e');
+      print('[ERROR] Stack trace: $st');
+      state = AsyncValue.error(e, st);
+    }
+  }
 }
 
 /// Provides the Profile data to the UI
@@ -73,5 +71,3 @@ final profileProvider = StateNotifierProvider<ProfileNotifier, AsyncValue<Profil
   final service = SupabaseService();
   return ProfileNotifier(service);
 });
-
-

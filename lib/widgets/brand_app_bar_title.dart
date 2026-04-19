@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 /// Reusable app-bar branding (icon + optional page title).
 class BrandAppBarTitle extends StatelessWidget {
@@ -14,7 +15,7 @@ class BrandAppBarTitle extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        const SizedBox(width: 12),
+        const SizedBox(width: 8), // Add left padding
         CircleAvatar(
           radius: 16,
           backgroundColor: Colors.white,
@@ -27,21 +28,22 @@ class BrandAppBarTitle extends StatelessWidget {
                 width: 28,
                 height: 28,
                 errorBuilder: (context, error, stackTrace) =>
-                const Icon(Icons.electric_car, size: 24),
+                    const Icon(Icons.electric_car, size: 24),
               ),
             ),
           ),
         ),
-        const SizedBox(width: 8),
-        Image.asset(
-          'assets/branding/voltogo.png',
-          height: 22,
-          fit: BoxFit.contain,
-          errorBuilder: (context, error, stackTrace) => Text(
-            title ?? 'VoltoGo',
-            style: Theme.of(context).textTheme.titleLarge,
+        if (title != null && title!.isNotEmpty) ...[
+          const SizedBox(width: 12),
+          Text(
+            title!,
+            style: GoogleFonts.dmSans(
+              fontWeight: FontWeight.w700,
+              fontSize: 20,
+              color: Theme.of(context).appBarTheme.foregroundColor ?? Colors.black,
+            ),
           ),
-        ),
+        ],
       ],
     );
   }

@@ -69,7 +69,26 @@ class VehiclesScreen extends ConsumerWidget {
                     );
 
                     if (confirm == true) {
-                      await ref.read(vehicleProvider.notifier).deleteVehicle(vehicle.id);
+                      try {
+                        await ref.read(vehicleProvider.notifier).deleteVehicle(vehicle.id);
+                      } catch (e) {
+                        final errorMsg = e.toString().contains('referenced by existing reservations')
+                            ? 'This vehicle cannot be deleted because it is referenced by one or more reservations.'
+                            : 'Failed to delete vehicle: $e';
+                        showDialog(
+                          context: context,
+                          builder: (context) => AlertDialog(
+                            title: const Text('Delete Failed'),
+                            content: Text(errorMsg),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(context),
+                                child: const Text('OK'),
+                              ),
+                            ],
+                          ),
+                        );
+                      }
                     }
                   },
                 ),

@@ -110,7 +110,7 @@ class ProfileScreen extends ConsumerWidget {
                   label: Text(themeMode == ThemeMode.dark ? 'Switch to Light Mode' : 'Switch to Dark Mode'),
                   onPressed: () {
                     ref.read(themeProvider.notifier).state =
-                        themeMode == ThemeMode.dark ? ThemeMode.light : ThemeMode.dark;
+                    themeMode == ThemeMode.dark ? ThemeMode.light : ThemeMode.dark;
                   },
                 ),
               ),
@@ -195,4 +195,3 @@ class ProfileScreen extends ConsumerWidget {
     );
   }
 }
-

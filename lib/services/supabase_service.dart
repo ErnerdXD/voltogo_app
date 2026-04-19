@@ -331,6 +331,7 @@ class SupabaseService {
     required String vehicleId,
     required DateTime startTime,
     required DateTime endTime,
+    required int currentBattery, // Add this parameter
   }) async {
     final user = currentUser;
     if (user == null) throw Exception('No user logged in');
@@ -351,6 +352,7 @@ class SupabaseService {
         'start_time': startTime.toIso8601String(),
         'end_time': endTime.toIso8601String(),
         'status': 'to pay',
+        'current_battery': currentBattery, // Store battery
       });
     } catch (e) {
       print('[SupabaseService] Error creating reservation: $e');

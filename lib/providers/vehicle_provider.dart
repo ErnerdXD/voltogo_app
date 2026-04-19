@@ -64,4 +64,3 @@ final vehicleProvider = StateNotifierProvider<VehicleNotifier, AsyncValue<List<V
   return VehicleNotifier(service);
 });
 
-

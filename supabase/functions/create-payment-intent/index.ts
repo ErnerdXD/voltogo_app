@@ -1,6 +1,3 @@
-// DEPRECATED: This file is no longer needed and can be safely deleted.
-// All code below is commented out to prevent accidental use or deployment.
-/*
 import Stripe from "npm:stripe";
 import { serve } from "https://deno.land/std/http/server.ts";
 
@@ -57,7 +54,7 @@ serve(async (req) => {
   }
   try {
     const paymentIntent = await stripe.paymentIntents.create({
-      amount: Math.round(Number(amount) * 100),
+      amount: Math.round(Number(amount)), // amount is already in cents from frontend
       currency,
       automatic_payment_methods: { enabled: true },
     });
@@ -83,4 +80,3 @@ serve(async (req) => {
     });
   }
 });
-*/

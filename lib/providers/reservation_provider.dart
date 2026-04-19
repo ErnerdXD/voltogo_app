@@ -48,6 +48,7 @@ class ReservationNotifier extends StateNotifier<ReservationState> {
     required String vehicleId,
     required DateTime startTime,
     required DateTime endTime,
+    required int currentBattery, // Add this parameter
   }) async {
     state = state.copyWith(isLoading: true, error: null);
     try {
@@ -56,6 +57,7 @@ class ReservationNotifier extends StateNotifier<ReservationState> {
         vehicleId: vehicleId,
         startTime: startTime,
         endTime: endTime,
+        currentBattery: currentBattery, // Pass battery
       );
       await fetchReservations();
     } catch (e) {
@@ -102,4 +104,3 @@ class ReservationNotifier extends StateNotifier<ReservationState> {
 final reservationProvider = StateNotifierProvider<ReservationNotifier, ReservationState>((ref) {
   return ReservationNotifier();
 });
-

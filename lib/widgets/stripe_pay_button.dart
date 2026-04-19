@@ -28,32 +28,31 @@ class _StripePayButtonState extends State<StripePayButton> {
       onPressed: _loading
           ? null
           : () async {
-              setState(() => _loading = true);
-               // Use StripeService instead of StripePaymentService
-               // You will need to pass the user's email as well
-               final success = await StripeService.payWithStripe(
-                 amountCents: widget.amount,
-                 currency: widget.currency,
-                 email: widget.email,
-               );
-              setState(() => _loading = false);
-              if (success && widget.onSuccess != null) {
-                widget.onSuccess!();
-              }
-              if (!success) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Payment failed or cancelled.')),
-                );
-              }
-            },
+        setState(() => _loading = true);
+        // Use StripeService instead of StripePaymentService
+        // You will need to pass the user's email as well
+        final success = await StripeService.payWithStripe(
+          amountCents: widget.amount,
+          currency: widget.currency,
+          email: widget.email,
+        );
+        setState(() => _loading = false);
+        if (success && widget.onSuccess != null) {
+          widget.onSuccess!();
+        }
+        if (!success) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Payment failed or cancelled.')),
+          );
+        }
+      },
       child: _loading
           ? const SizedBox(
-              width: 20,
-              height: 20,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            )
+        width: 20,
+        height: 20,
+        child: CircularProgressIndicator(strokeWidth: 2),
+      )
           : const Text('Pay with Stripe'),
     );
   }
 }
-
