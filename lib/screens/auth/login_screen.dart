@@ -1,15 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:voltogo_app/providers/user_provider.dart';
 
-class LoginScreen extends StatefulWidget {
+class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
 
   @override
-  State<LoginScreen> createState() => _LoginScreenState();
+  ConsumerState<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> {
+class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _isLoading = false;
@@ -31,13 +33,16 @@ class _LoginScreenState extends State<LoginScreen> {
             .eq('auth_user_id', response.user!.id)
             .single();
 
-        // 3. BLOCK: If deleted, forcefully sign them back out and throw an error
+        // BLOCK: If deleted, forcefully sign them back out and throw an error
         if (userRecord['is_deleted'] == true) {
           await Supabase.instance.client.auth.signOut();
           throw Exception('This account has been deleted. Please register a new account.');
         }
       }
 
+      ref.invalidate(userProvider);
+
+      // 4. Success! Navigate to the map
       if (mounted) context.go('/map');
 
     } on AuthException catch (error) {
@@ -48,7 +53,6 @@ class _LoginScreenState extends State<LoginScreen> {
       }
     } catch (error) {
       if (mounted) {
-        // This will display our custom "Account deleted" error message!
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(error.toString().replaceAll('Exception: ', '')), backgroundColor: Colors.red),
         );
