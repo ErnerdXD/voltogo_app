@@ -63,4 +63,3 @@ final vehicleProvider = StateNotifierProvider<VehicleNotifier, AsyncValue<List<V
   final service = SupabaseService();
   return VehicleNotifier(service);
 });
-

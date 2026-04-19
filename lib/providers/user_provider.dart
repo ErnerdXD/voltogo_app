@@ -67,4 +67,3 @@ StateNotifierProvider<UserNotifier, AsyncValue<UserModel?>>((ref) {
 
 
 
-

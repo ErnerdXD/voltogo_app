@@ -75,6 +75,6 @@ class ProfileModel {
 
 	static DateTime? _parseDateTime(dynamic value) {
 		if (value == null) return null;
-		return DateTime.tryParse(value.toString())?.toLocal();
+		return DateTime.tryParse(value.toString());
 	}
 }

@@ -10,6 +10,7 @@ class ReservationModel {
     this.qrCode,
     this.createdAt,
     this.currentBattery,
+    this.cancellationReason,
   });
 
   final String id;
@@ -22,6 +23,7 @@ class ReservationModel {
   final String? qrCode;
   final DateTime? createdAt;
   final int? currentBattery;
+  final String? cancellationReason;
 
   factory ReservationModel.fromJson(Map<String, dynamic> json) {
     return ReservationModel(
@@ -34,7 +36,8 @@ class ReservationModel {
       status: json['status'] as String?,
       qrCode: json['qr_code'] as String?,
       createdAt: _parseDateTime(json['created_at']),
-      currentBattery: json['current_battery'] as int?,
+      currentBattery: _parseInt(json['current_battery']),
+      cancellationReason: json['cancellation_reason'] as String?,
     );
   }
 
@@ -50,6 +53,7 @@ class ReservationModel {
       'qr_code': qrCode,
       'created_at': createdAt?.toIso8601String(),
       'current_battery': currentBattery,
+      'cancellation_reason': cancellationReason,
     };
   }
 
@@ -64,6 +68,7 @@ class ReservationModel {
     String? qrCode,
     DateTime? createdAt,
     int? currentBattery,
+    String? cancellationReason,
   }) {
     return ReservationModel(
       id: id ?? this.id,
@@ -76,11 +81,18 @@ class ReservationModel {
       qrCode: qrCode ?? this.qrCode,
       createdAt: createdAt ?? this.createdAt,
       currentBattery: currentBattery ?? this.currentBattery,
+      cancellationReason: cancellationReason ?? this.cancellationReason,
     );
   }
 
   static DateTime? _parseDateTime(dynamic value) {
     if (value == null) return null;
     return DateTime.tryParse(value.toString());
+  }
+
+  static int? _parseInt(dynamic value) {
+    if (value == null) return null;
+    if (value is int) return value;
+    return int.tryParse(value.toString());
   }
 }

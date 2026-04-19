@@ -37,31 +37,36 @@ class ReservationNotifier extends StateNotifier<ReservationState> {
     state = state.copyWith(isLoading: true, error: null);
     try {
       final reservations = await _service.getUserReservations();
-      state = state.copyWith(reservations: reservations, isLoading: false, error: null);
+      state = state.copyWith(reservations: reservations, isLoading: false);
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
     }
   }
 
-  Future<void> createReservation({
+  Future<ReservationModel?> createReservation({
     required String slotId,
     required String vehicleId,
     required DateTime startTime,
     required DateTime endTime,
-    required int currentBattery, // Add this parameter
+    required int? currentBattery, // Accept nullable, but pass non-nullable
   }) async {
     state = state.copyWith(isLoading: true, error: null);
     try {
-      await _service.createReservation(
+      if (currentBattery == null) {
+        throw Exception('Current battery cannot be null');
+      }
+      final reservation = await _service.createReservation(
         slotId: slotId,
         vehicleId: vehicleId,
         startTime: startTime,
         endTime: endTime,
-        currentBattery: currentBattery, // Pass battery
+        currentBattery: currentBattery, // Now non-nullable
       );
       await fetchReservations();
+      return reservation;
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
+      return null;
     }
   }
 
@@ -75,32 +80,24 @@ class ReservationNotifier extends StateNotifier<ReservationState> {
     }
   }
 
-  /// Mark a reservation as completed (used after successful payment)
   Future<void> completeReservation(String reservationId) async {
     state = state.copyWith(isLoading: true, error: null);
-    // Optimistic update: mark locally as completed so UI updates immediately
     try {
       final updatedList = state.reservations.map((r) {
-        // After payment succeeds we mark the reservation as 'paid' so it remains
-        // in the active reservations list (and shows QR / View Details).
         if (r.id == reservationId) return r.copyWith(status: 'paid');
         return r;
       }).toList();
       state = state.copyWith(reservations: updatedList, isLoading: false);
-
-      // Persist change on server and refresh
       await _service.updateReservationStatus(reservationId, 'paid');
       await fetchReservations();
     } catch (e) {
-      // Revert optimistic update on error
-      try {
-        await fetchReservations();
-      } catch (_) {}
+      try { await fetchReservations(); } catch (_) {}
       state = state.copyWith(isLoading: false, error: e.toString());
     }
   }
 }
 
-final reservationProvider = StateNotifierProvider<ReservationNotifier, ReservationState>((ref) {
+final reservationProvider =
+StateNotifierProvider<ReservationNotifier, ReservationState>((ref) {
   return ReservationNotifier();
 });

@@ -31,26 +31,11 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   double? _heading;
   StreamSubscription<CompassEvent>? _compassSubscription;
 
-  // --- Highlight logic ---
-  String? _highlightStationId;
-
   @override
   void initState() {
     super.initState();
     _initializeLocationAndStations();
     _initCompass(); // gyro/magnetometer
-    // Read highlightStationId from route name
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final routeName = ModalRoute.of(context)?.settings.name;
-      String? highlightId;
-      if (routeName != null && routeName.contains('highlightStationId=')) {
-        final uri = Uri.parse(routeName);
-        highlightId = uri.queryParameters['highlightStationId'];
-      }
-      if (highlightId != null && highlightId.isNotEmpty) {
-        setState(() => _highlightStationId = highlightId);
-      }
-    });
   }
 
   // Initialize the Compass Listener
@@ -113,8 +98,6 @@ class _MapScreenState extends ConsumerState<MapScreen> {
 
       // 2. Map the API response into FlutterMap Markers
       final markers = stations.map((station) {
-        final isHighlighted = _highlightStationId != null &&
-            (station.id.toString() == _highlightStationId);
         return Marker(
           point: LatLng(station.latitude, station.longitude),
           width: 60,
@@ -126,7 +109,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
               children: [
                 Container(
                   decoration: BoxDecoration(
-                    color: isHighlighted ? Colors.blue : Colors.green,
+                    color: Colors.green,
                     borderRadius: BorderRadius.circular(50),
                     border: Border.all(color: Colors.white, width: 2),
                     boxShadow: [
@@ -134,10 +117,10 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                     ],
                   ),
                   padding: const EdgeInsets.all(4),
-                  child: Icon(
+                  child: const Icon(
                     Icons.ev_station,
                     color: Colors.white,
-                    size: isHighlighted ? 32 : 24,
+                    size: 24,
                   ),
                 ),
                 if (station.availablePoints != null && station.availablePoints! > 0)
@@ -163,9 +146,9 @@ class _MapScreenState extends ConsumerState<MapScreen> {
         _isLoading = false;
       });
 
-      debugPrint('[MapScreen] Successfully loaded \\${markers.length} stations.');
+      debugPrint('[MapScreen] Successfully loaded ${markers.length} stations.');
     } catch (e) {
-      debugPrint('Error loading stations: \\${e}');
+      debugPrint('Error loading stations: $e');
       if (mounted) {
         setState(() => _isLoading = false);
         ScaffoldMessenger.of(context).showSnackBar(
@@ -213,25 +196,22 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                     maxZoom: 18.0,
                     minZoom: 5.0,
                     interactionOptions: const InteractionOptions(
-                      flags: InteractiveFlag.drag | InteractiveFlag.pinchZoom | InteractiveFlag.doubleTapZoom,
+                      flags: InteractiveFlag.all,
+                      rotationThreshold: 20.0,
+                      pinchZoomThreshold: 0.5,
                     ),
                   ),
                   children: [
                     TileLayer(
                       urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                       userAgentPackageName: 'com.example.voltogo_app',
-
-                      keepBuffer: 3,
-                      panBuffer: 2,
-                      retinaMode: true,
-                      
                       tileProvider: NetworkTileProvider(
                         headers: {
                           'User-Agent': 'VoltogoApp/1.0',
                         },
                       ),
                       errorTileCallback: (tile, error, stackTrace) {
-                        debugPrint('Tile load error: \\${error}');
+                        debugPrint('Tile load error: $error');
                       },
                     ),
                     MarkerLayer(
@@ -242,37 +222,13 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                           width: 60,
                           height: 60,
                           rotate: false,
-                          child: _buildUserLocationMarker(),
+                          child: _buildUserLocationMarker(), // Calling the helper method below
                         ),
                       ],
                     ),
                   ],
                 ),
-                // --- Highlight dismiss X button ---
-                if (_highlightStationId != null)
-                  Positioned(
-                    top: 36,
-                    right: 16,
-                    child: GestureDetector(
-                      onTap: () {
-                        setState(() => _highlightStationId = null);
-                      },
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          shape: BoxShape.circle,
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.1),
-                              blurRadius: 4,
-                            ),
-                          ],
-                        ),
-                        padding: const EdgeInsets.all(4),
-                        child: const Icon(Icons.close, size: 18, color: Colors.blue),
-                      ),
-                    ),
-                  ),
+
                 // Unified Bottom Controls
                 Positioned(
                   bottom: 20,
@@ -296,7 +252,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                           heroTag: 'radius_fab',
                           onPressed: () => setState(() => _isRadiusExpanded = true),
                           icon: const Icon(Icons.radar),
-                          label: Text('\\${_radiusKm.toStringAsFixed(1)} km'),
+                          label: Text('${_radiusKm.toStringAsFixed(1)} km'),
                         )
                       else
                         Container(
@@ -307,8 +263,8 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                             borderRadius: BorderRadius.circular(12),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withValues(alpha: 25),
-                                blurRadius: 4,
+                                color: Colors.black.withValues(alpha: 0.1),
+                                blurRadius: 8,
                               ),
                             ],
                           ),
@@ -319,7 +275,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
                                   Text(
-                                    'Search Radius: \\${_radiusKm.toStringAsFixed(1)} km',
+                                    'Search Radius: ${_radiusKm.toStringAsFixed(1)} km',
                                     style: Theme.of(context).textTheme.labelLarge,
                                   ),
                                   InkWell(
@@ -339,7 +295,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                                 },
                               ),
                               Text(
-                                'Stations found: \\${_stationMarkers.length}',
+                                'Stations found: ${_stationMarkers.length}',
                                 style: Theme.of(context).textTheme.bodySmall,
                               ),
                             ],
@@ -349,17 +305,18 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                   ),
                 ),
               ],
-            ),
+      ),
     );
   }
-
   // helper method to build the rotating blue dot
   Widget _buildUserLocationMarker() {
     return Transform.rotate(
+      // Convert degrees from compass to radians for Flutter
       angle: ((_heading ?? 0) * (math.pi / 180)),
       child: Stack(
         alignment: Alignment.center,
         children: [
+          // The directional "Beam" pointing UP
           if (_heading != null)
             Positioned(
               top: 0,
@@ -369,6 +326,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                 size: 32,
               ),
             ),
+          // The Blue Dot
           Container(
             width: 18,
             height: 18,
@@ -392,7 +350,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
 
   @override
   void dispose() {
-    _compassSubscription?.cancel();
+    _compassSubscription?.cancel(); //stop sensor when leave screen
     _mapController.dispose();
     super.dispose();
   }

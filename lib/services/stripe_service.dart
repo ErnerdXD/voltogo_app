@@ -13,8 +13,8 @@ class ChargingStation {
     required this.id,
     required this.name,
   });
-  // ...existing code for ChargingStation...
-  // ...existing code for ChargingStation...
+// ...existing code for ChargingStation...
+// ...existing code for ChargingStation...
 }
 
 class StripeService {
@@ -83,7 +83,7 @@ class StripeService {
             ),
           ),
           billingDetailsCollectionConfiguration:
-              BillingDetailsCollectionConfiguration(
+          BillingDetailsCollectionConfiguration(
             address: AddressCollectionMode.never,
           ),
         ),

@@ -19,7 +19,7 @@ class SupabaseService {
 
   // --- USER SETUP (Module 1) ---
 
-   /// Complete user setup after signup
+  /// Complete user setup after signup
   Future<void> setupUserAfterSignup(User authUser, {String? fullName}) async {
     try {
       // DEBUG: Verify we are actually authenticated
@@ -231,7 +231,7 @@ class SupabaseService {
       if ((userRecords as List).isEmpty) {
         throw Exception('User record not found');
       }
-      
+
       final userId = userRecords[0]['id'];
 
       await _client.from('vehicles').insert({
@@ -326,7 +326,7 @@ class SupabaseService {
   }
 
   /// Create a new reservation
-  Future<void> createReservation({
+  Future<ReservationModel?> createReservation({
     required String slotId,
     required String vehicleId,
     required DateTime startTime,
@@ -341,11 +341,9 @@ class SupabaseService {
           .from('users')
           .select('id')
           .eq('auth_user_id', user.id);
-          
       if ((userRecords as List).isEmpty) throw Exception('User record not found');
-      
       final userId = userRecords[0]['id'];
-      await _client.from('reservations').insert({
+      final insertResponse = await _client.from('reservations').insert({
         'user_id': userId,
         'slot_id': slotId,
         'vehicle_id': vehicleId,
@@ -353,7 +351,11 @@ class SupabaseService {
         'end_time': endTime.toIso8601String(),
         'status': 'to pay',
         'current_battery': currentBattery, // Store battery
-      });
+      }).select();
+      if ((insertResponse as List).isEmpty) {
+        return null;
+      }
+      return ReservationModel.fromJson(insertResponse[0]);
     } catch (e) {
       print('[SupabaseService] Error creating reservation: $e');
       throw Exception('Failed to create reservation: $e');
@@ -469,9 +471,9 @@ class SupabaseService {
           .from('users')
           .select('id')
           .eq('auth_user_id', user.id);
-      
+
       if ((userRecords as List).isEmpty) return [];
-      
+
       final userId = userRecords[0]['id'];
       final response = await _client
           .from('payments')

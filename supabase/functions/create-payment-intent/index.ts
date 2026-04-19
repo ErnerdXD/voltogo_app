@@ -54,7 +54,7 @@ serve(async (req) => {
   }
   try {
     const paymentIntent = await stripe.paymentIntents.create({
-      amount: Math.round(Number(amount)), // amount is already in cents from frontend
+      amount: Math.round(Number(amount) * 100),
       currency,
       automatic_payment_methods: { enabled: true },
     });

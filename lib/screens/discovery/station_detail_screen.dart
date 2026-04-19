@@ -37,7 +37,7 @@ class _StationDetailSheetState extends ConsumerState<StationDetailSheet> {
         }).toList();
         if (incompatible.isNotEmpty) {
           incompatibleVehicleMsg =
-            'One or more of your vehicles is not suitable for this station (plug type not compatible). You can still proceed to book.';
+          'One or more of your vehicles is not suitable for this station (plug type not compatible). You can still proceed to book.';
         }
       }
     });
@@ -462,4 +462,3 @@ class _StationDetailSheetState extends ConsumerState<StationDetailSheet> {
     );
   }
 }
-
