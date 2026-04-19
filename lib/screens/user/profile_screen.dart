@@ -63,7 +63,6 @@ class ProfileScreen extends ConsumerWidget {
                   child: const Text('Edit Profile'),
                 ),
               ),
-
               const SizedBox(height: 12),
 
               // My Vehicles Button
@@ -196,3 +195,4 @@ class ProfileScreen extends ConsumerWidget {
     );
   }
 }
+

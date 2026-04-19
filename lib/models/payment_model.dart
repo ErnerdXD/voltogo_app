@@ -7,6 +7,10 @@ class PaymentModel {
 	this.energyKwh,
 	this.status,
 	this.paidAt,
+	this.stripePaymentIntentId,
+	this.stripeCustomerId,
+	this.paymentMethodType,
+	this.paymentMethodLast4,
   });
 
   final String id;
@@ -16,6 +20,10 @@ class PaymentModel {
   final double? energyKwh;
   final String? status;
   final DateTime? paidAt;
+  final String? stripePaymentIntentId;
+  final String? stripeCustomerId;
+  final String? paymentMethodType;
+  final String? paymentMethodLast4;
 
   factory PaymentModel.fromJson(Map<String, dynamic> json) {
 	return PaymentModel(
@@ -26,6 +34,10 @@ class PaymentModel {
 	  energyKwh: _parseDouble(json['energy_kwh']),
 	  status: json['status'] as String?,
 	  paidAt: _parseDateTime(json['paid_at']),
+	  stripePaymentIntentId: json['stripe_payment_intent_id'] as String?,
+	  stripeCustomerId: json['stripe_customer_id'] as String?,
+	  paymentMethodType: json['payment_method_type'] as String?,
+	  paymentMethodLast4: json['payment_method_last4'] as String?,
 	);
   }
 
@@ -38,6 +50,10 @@ class PaymentModel {
 	  'energy_kwh': energyKwh,
 	  'status': status,
 	  'paid_at': paidAt?.toIso8601String(),
+	  'stripe_payment_intent_id': stripePaymentIntentId,
+	  'stripe_customer_id': stripeCustomerId,
+	  'payment_method_type': paymentMethodType,
+	  'payment_method_last4': paymentMethodLast4,
 	};
   }
 
@@ -49,6 +65,10 @@ class PaymentModel {
 	double? energyKwh,
 	String? status,
 	DateTime? paidAt,
+	String? stripePaymentIntentId,
+	String? stripeCustomerId,
+	String? paymentMethodType,
+	String? paymentMethodLast4,
   }) {
 	return PaymentModel(
 	  id: id ?? this.id,
@@ -58,6 +78,10 @@ class PaymentModel {
 	  energyKwh: energyKwh ?? this.energyKwh,
 	  status: status ?? this.status,
 	  paidAt: paidAt ?? this.paidAt,
+	  stripePaymentIntentId: stripePaymentIntentId ?? this.stripePaymentIntentId,
+	  stripeCustomerId: stripeCustomerId ?? this.stripeCustomerId,
+	  paymentMethodType: paymentMethodType ?? this.paymentMethodType,
+	  paymentMethodLast4: paymentMethodLast4 ?? this.paymentMethodLast4,
 	);
   }
 

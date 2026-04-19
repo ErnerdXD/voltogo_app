@@ -7,6 +7,8 @@ class ProfileModel {
 		this.phone,
 		this.avatarUrl,
 		this.createdAt,
+		this.paymentMethod,
+		this.stripePaymentMethodId,
 	});
 
 	final String id;
@@ -16,6 +18,8 @@ class ProfileModel {
 	final String? phone;
 	final String? avatarUrl;
 	final DateTime? createdAt;
+	final String? paymentMethod;
+	final String? stripePaymentMethodId;
 
 	factory ProfileModel.fromJson(Map<String, dynamic> json) {
 		return ProfileModel(
@@ -26,6 +30,8 @@ class ProfileModel {
 			phone: json['phone'] as String?,
 			avatarUrl: json['avatar_url'] as String?,
 			createdAt: _parseDateTime(json['created_at']),
+			paymentMethod: json['payment_method'] as String?,
+			stripePaymentMethodId: json['stripe_payment_method_id'] as String?,
 		);
 	}
 
@@ -38,6 +44,8 @@ class ProfileModel {
 			'phone': phone,
 			'avatar_url': avatarUrl,
 			'created_at': createdAt?.toIso8601String(),
+			'payment_method': paymentMethod,
+			'stripe_payment_method_id': stripePaymentMethodId,
 		};
 	}
 
@@ -49,6 +57,8 @@ class ProfileModel {
 		String? phone,
 		String? avatarUrl,
 		DateTime? createdAt,
+		String? paymentMethod,
+		String? stripePaymentMethodId,
 	}) {
 		return ProfileModel(
 			id: id ?? this.id,
@@ -58,6 +68,8 @@ class ProfileModel {
 			phone: phone ?? this.phone,
 			avatarUrl: avatarUrl ?? this.avatarUrl,
 			createdAt: createdAt ?? this.createdAt,
+			paymentMethod: paymentMethod ?? this.paymentMethod,
+			stripePaymentMethodId: stripePaymentMethodId ?? this.stripePaymentMethodId,
 		);
 	}
 

@@ -8,6 +8,7 @@ import 'package:voltogo_app/screens/auth/register_screen.dart';
 import 'package:voltogo_app/screens/discovery/map_screen.dart';
 import 'package:voltogo_app/screens/reservation/activity_screen.dart';
 import 'package:voltogo_app/screens/payment/dashboard_screen.dart';
+import 'package:voltogo_app/screens/payment/payment_method_screen.dart';
 import 'package:voltogo_app/screens/user/profile_screen.dart';
 import 'package:voltogo_app/screens/user/edit_profile_screen.dart';
 import 'package:voltogo_app/screens/user/vehicles_screen.dart';
@@ -157,6 +158,10 @@ final goRouter = GoRouter(
                       },
                     ),
                   ],
+                ),
+                GoRoute(
+                  path: 'payment-method',
+                  builder: (context, state) => const PaymentMethodScreen(),
                 ),
               ],
             ),

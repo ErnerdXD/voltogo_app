@@ -4,6 +4,7 @@ import 'package:voltogo_app/models/profile_model.dart';
 import 'package:voltogo_app/models/vehicle_model.dart';
 import 'package:voltogo_app/models/station_model.dart';
 import 'package:voltogo_app/models/reservation_model.dart';
+import 'package:voltogo_app/models/payment_model.dart';
 
 class SupabaseService {
   // Singleton pattern for the service
@@ -30,7 +31,11 @@ class SupabaseService {
       final userResponse = await _client.from('users').insert({
         'auth_user_id': authUser.id,
         'role': 'member',
-      }).select('id').single();
+      }).select('id').maybeSingle();
+
+      if (userResponse == null) {
+        throw Exception('Failed to create user record.');
+      }
 
       final String publicId = userResponse['id'];
       print('[DEBUG] Public User ID Created: $publicId');
@@ -80,6 +85,8 @@ class SupabaseService {
     required String fullName,
     String? phone,
     String? avatarUrl,
+    String? paymentMethod,
+    String? stripePaymentMethodId,
   }) async {
     final user = currentUser;
     if (user == null) throw Exception('No user logged in');
@@ -90,16 +97,25 @@ class SupabaseService {
       if (profile == null) throw Exception('Profile not found. Please re-login.');
 
       // 2. Perform the update using the profile's primary key (id)
-      final response = await _client
-          .from('profiles')
-          .update({
+      final updateData = {
         'full_name': fullName,
         'phone': phone,
         'avatar_url': avatarUrl,
-      })
+      };
+      if (paymentMethod != null) {
+        updateData['payment_method'] = paymentMethod;
+      }
+      if (stripePaymentMethodId != null) {
+        updateData['stripe_payment_method_id'] = stripePaymentMethodId;
+      }
+      final response = await _client
+          .from('profiles')
+          .update(updateData)
           .eq('id', profile.id)
           .select()
-          .single();
+          .maybeSingle();
+
+      if (response == null) throw Exception('Failed to update profile.');
 
       return ProfileModel.fromJson(response);
     } catch (e) {
@@ -143,14 +159,19 @@ class SupabaseService {
 
     try {
       // Find our public.users.id first
-      final userRecord = await _client
+      final userRecords = await _client
           .from('users')
           .select('id')
-          .eq('auth_user_id', user.id)
-          .single();
+          .eq('auth_user_id', user.id);
+
+      if ((userRecords as List).isEmpty) {
+        throw Exception('User record not found');
+      }
+      
+      final userId = userRecords[0]['id'];
 
       await _client.from('vehicles').insert({
-        'user_id': userRecord['id'],
+        'user_id': userId,
         'brand': brand,
         'model': model,
         'plate_number': plateNumber,
@@ -207,20 +228,30 @@ class SupabaseService {
   /// Fetch all reservations for the current user
   Future<List<ReservationModel>> getUserReservations() async {
     final user = currentUser;
-    if (user == null) return [];
+    if (user == null) {
+      print('[SupabaseService] No current user logged in.');
+      return [];
+    }
     try {
+      print('[SupabaseService] Current auth user id: \\${user.id}');
       // Get the user's public.users.id
-      final userRecord = await _client
+      final userRecords = await _client
           .from('users')
           .select('id')
-          .eq('auth_user_id', user.id)
-          .single();
-      final userId = userRecord['id'];
+          .eq('auth_user_id', user.id);
+      print('[SupabaseService] userRecords: \\${userRecords}');
+      if ((userRecords as List).isEmpty) {
+        print('[SupabaseService] No user record found for auth_user_id=\\${user.id}');
+        return [];
+      }
+      final userId = userRecords[0]['id'];
+      print('[SupabaseService] Using userId for reservations: \\${userId}');
       final response = await _client
           .from('reservations')
           .select('*')
           .eq('user_id', userId)
           .order('start_time', ascending: false);
+      print('[SupabaseService] Raw reservations response: \\${response}');
       return (response as List)
           .map((json) => ReservationModel.fromJson(json))
           .toList();
@@ -241,19 +272,21 @@ class SupabaseService {
     if (user == null) throw Exception('No user logged in');
     try {
       // Get the user's public.users.id
-      final userRecord = await _client
+      final userRecords = await _client
           .from('users')
           .select('id')
-          .eq('auth_user_id', user.id)
-          .single();
-      final userId = userRecord['id'];
+          .eq('auth_user_id', user.id);
+          
+      if ((userRecords as List).isEmpty) throw Exception('User record not found');
+      
+      final userId = userRecords[0]['id'];
       await _client.from('reservations').insert({
         'user_id': userId,
         'slot_id': slotId,
         'vehicle_id': vehicleId,
         'start_time': startTime.toIso8601String(),
         'end_time': endTime.toIso8601String(),
-        'status': 'active',
+        'status': 'to pay',
       });
     } catch (e) {
       print('[SupabaseService] Error creating reservation: $e');
@@ -271,6 +304,120 @@ class SupabaseService {
     } catch (e) {
       print('[SupabaseService] Error cancelling reservation: $e');
       throw Exception('Failed to cancel reservation: $e');
+    }
+  }
+
+  /// Delete a reservation permanently (e.g. if expired)
+  Future<void> deleteReservation(String reservationId) async {
+    try {
+      await _client
+          .from('reservations')
+          .delete()
+          .eq('id', reservationId);
+    } catch (e) {
+      print('[SupabaseService] Error deleting reservation: $e');
+      throw Exception('Failed to delete reservation: $e');
+    }
+  }
+
+  /// Update the status of a reservation (e.g., 'completed', 'cancelled')
+  Future<void> updateReservationStatus(String reservationId, String status) async {
+    try {
+      await _client.from('reservations').update({'status': status}).eq('id', reservationId);
+    } catch (e) {
+      print('[SupabaseService] Error updating reservation status: $e');
+      throw Exception('Failed to update reservation status: $e');
+    }
+  }
+
+  // --- PAYMENT CRUD (Module 4) ---
+
+  /// Create a new payment
+  Future<void> createPayment({
+    required String reservationId,
+    String? userId,
+    double? amount,
+    double? energyKwh,
+    String? status,
+    DateTime? paidAt,
+    String? stripePaymentIntentId,
+    String? stripeCustomerId,
+    String? paymentMethodType,
+    String? paymentMethodLast4,
+  }) async {
+    try {
+      await _client.from('payments').insert({
+        'reservation_id': reservationId,
+        'user_id': userId,
+        'amount': amount,
+        'energy_kwh': energyKwh,
+        'status': status,
+        'paid_at': paidAt?.toIso8601String(),
+        'stripe_payment_intent_id': stripePaymentIntentId,
+        'stripe_customer_id': stripeCustomerId,
+        'payment_method_type': paymentMethodType,
+        'payment_method_last4': paymentMethodLast4,
+      });
+    } catch (e) {
+      print('[SupabaseService] Error creating payment: $e');
+      throw Exception('Failed to create payment: $e');
+    }
+  }
+
+  /// Update an existing payment
+  Future<void> updatePayment({
+    required String paymentId,
+    double? amount,
+    double? energyKwh,
+    String? status,
+    DateTime? paidAt,
+    String? stripePaymentIntentId,
+    String? stripeCustomerId,
+    String? paymentMethodType,
+    String? paymentMethodLast4,
+  }) async {
+    try {
+      final updateData = <String, dynamic>{};
+      if (amount != null) updateData['amount'] = amount;
+      if (energyKwh != null) updateData['energy_kwh'] = energyKwh;
+      if (status != null) updateData['status'] = status;
+      if (paidAt != null) updateData['paid_at'] = paidAt.toIso8601String();
+      if (stripePaymentIntentId != null) updateData['stripe_payment_intent_id'] = stripePaymentIntentId;
+      if (stripeCustomerId != null) updateData['stripe_customer_id'] = stripeCustomerId;
+      if (paymentMethodType != null) updateData['payment_method_type'] = paymentMethodType;
+      if (paymentMethodLast4 != null) updateData['payment_method_last4'] = paymentMethodLast4;
+      await _client.from('payments').update(updateData).eq('id', paymentId);
+    } catch (e) {
+      print('[SupabaseService] Error updating payment: $e');
+      throw Exception('Failed to update payment: $e');
+    }
+  }
+
+  /// Fetch all payments for the current user
+  Future<List<PaymentModel>> getPaymentsForUser() async {
+    final user = currentUser;
+    if (user == null) return [];
+    try {
+      // Get the user's public.users.id
+      final userRecords = await _client
+          .from('users')
+          .select('id')
+          .eq('auth_user_id', user.id);
+      
+      if ((userRecords as List).isEmpty) return [];
+      
+      final userId = userRecords[0]['id'];
+      final response = await _client
+          .from('payments')
+          .select('*')
+          .eq('user_id', userId)
+          .order('paid_at', ascending: false);
+      return (response as List)
+          .map((json) => PaymentModel.fromJson(json))
+          .toList();
+    } catch (e) {
+      print('[SupabaseService] Error fetching payments: $e');
+      return [];
     }
   }
 }

@@ -72,6 +72,31 @@ class ReservationNotifier extends StateNotifier<ReservationState> {
       state = state.copyWith(isLoading: false, error: e.toString());
     }
   }
+
+  /// Mark a reservation as completed (used after successful payment)
+  Future<void> completeReservation(String reservationId) async {
+    state = state.copyWith(isLoading: true, error: null);
+    // Optimistic update: mark locally as completed so UI updates immediately
+    try {
+      final updatedList = state.reservations.map((r) {
+        // After payment succeeds we mark the reservation as 'paid' so it remains
+        // in the active reservations list (and shows QR / View Details).
+        if (r.id == reservationId) return r.copyWith(status: 'paid');
+        return r;
+      }).toList();
+      state = state.copyWith(reservations: updatedList, isLoading: false);
+
+      // Persist change on server and refresh
+      await _service.updateReservationStatus(reservationId, 'paid');
+      await fetchReservations();
+    } catch (e) {
+      // Revert optimistic update on error
+      try {
+        await fetchReservations();
+      } catch (_) {}
+      state = state.copyWith(isLoading: false, error: e.toString());
+    }
+  }
 }
 
 final reservationProvider = StateNotifierProvider<ReservationNotifier, ReservationState>((ref) {

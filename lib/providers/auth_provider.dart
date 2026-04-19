@@ -37,45 +37,30 @@ class ProfileNotifier extends StateNotifier<AsyncValue<ProfileModel?>> {
      required String fullName,
      String? phone,
      String? avatarUrl,
+     String? paymentMethod,
+     String? stripePaymentMethodId,
    }) async {
      try {
-       // ignore: avoid_print
        print('[ProfileNotifier] Starting profile update...');
-       
        final updatedProfile = await _service.updateProfile(
          fullName: fullName,
          phone: phone,
          avatarUrl: avatarUrl,
+         paymentMethod: paymentMethod,
+         stripePaymentMethodId: stripePaymentMethodId,
        );
-       
-       // ignore: avoid_print
        print('[ProfileNotifier] Update complete, updated profile: $updatedProfile');
-
-       // Immediately update state with new data
        if (updatedProfile != null) {
          state = AsyncValue.data(updatedProfile);
-         // ignore: avoid_print
          print('[ProfileNotifier] State updated with new profile');
        }
-       
-       // Small delay to ensure database has persisted
        await Future.delayed(const Duration(milliseconds: 500));
-       
-       // Then fetch fresh from database to verify
-       // ignore: avoid_print
        print('[ProfileNotifier] Refreshing profile from database...');
-       
        final refreshedProfile = await _service.getProfile();
-       
-       // ignore: avoid_print
        print('[ProfileNotifier] Refreshed profile: $refreshedProfile');
-       
        state = AsyncValue.data(refreshedProfile);
-       
-       // ignore: avoid_print
        print('[ProfileNotifier] Profile update flow complete!');
      } catch (e, st) {
-       // ignore: avoid_print
        print('[ERROR] ProfileNotifier update failed: $e');
        print('[ERROR] Stack trace: $st');
        state = AsyncValue.error(e, st);
