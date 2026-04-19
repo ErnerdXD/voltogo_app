@@ -14,34 +14,21 @@ class EditVehicleScreen extends ConsumerStatefulWidget {
 }
 
 class _EditVehicleScreenState extends ConsumerState<EditVehicleScreen> {
-  late final TextEditingController _brandController;
-  late final TextEditingController _modelController;
   late final TextEditingController _plateController;
-  late final TextEditingController _capacityController;
-  late String _selectedPlugType;
 
-  static const _plugTypes = ['Type 2', 'CCS2', 'CHAdeMO', 'Tesla'];
   bool _isLoading = false;
   final _formKey = GlobalKey<FormState>();
 
   @override
   void initState() {
     super.initState();
-    _brandController = TextEditingController(text: widget.vehicle.brand ?? '');
-    _modelController = TextEditingController(text: widget.vehicle.model ?? '');
+    // We only need a controller for the plate number now!
     _plateController = TextEditingController(text: widget.vehicle.plateNumber ?? '');
-    _capacityController = TextEditingController(
-      text: widget.vehicle.batteryCapacityKwh?.toString() ?? '',
-    );
-    _selectedPlugType = widget.vehicle.plugType ?? 'Type 2';
   }
 
   @override
   void dispose() {
-    _brandController.dispose();
-    _modelController.dispose();
     _plateController.dispose();
-    _capacityController.dispose();
     super.dispose();
   }
 
@@ -50,20 +37,17 @@ class _EditVehicleScreenState extends ConsumerState<EditVehicleScreen> {
 
     setState(() => _isLoading = true);
     try {
+      // We only send the updated plate number to Supabase
       await ref.read(vehicleProvider.notifier).updateVehicle(
         widget.vehicle.id,
         {
-          'brand': _brandController.text.trim(),
-          'model': _modelController.text.trim(),
-          'plate_number': _plateController.text.trim(),
-          'plug_type': _selectedPlugType,
-          'battery_capacity_kwh': int.tryParse(_capacityController.text.trim()),
+          'plate_number': _plateController.text.trim().toUpperCase(),
         },
       );
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Vehicle updated successfully!')),
+          const SnackBar(content: Text('Registration updated successfully!')),
         );
         context.pop();
       }
@@ -89,67 +73,95 @@ class _EditVehicleScreenState extends ConsumerState<EditVehicleScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              TextFormField(
-                controller: _brandController,
-                decoration: const InputDecoration(
-                  labelText: 'Brand (e.g. Tesla, BYD)',
-                  prefixIcon: Icon(Icons.directions_car),
-                ),
-                validator: (v) => v?.isEmpty ?? true ? 'Brand is required' : null,
+              // 1. Read-Only Vehicle Info Display
+              const Text(
+                'Vehicle Specifications',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
               ),
               const SizedBox(height: 16),
-              TextFormField(
-                controller: _modelController,
-                decoration: const InputDecoration(
-                  labelText: 'Model (e.g. Model 3, Atto 3)',
-                  prefixIcon: Icon(Icons.info),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.grey.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.grey.withValues(alpha: 0.3)),
                 ),
-                validator: (v) => v?.isEmpty ?? true ? 'Model is required' : null,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '${widget.vehicle.brand ?? 'Unknown'} ${widget.vehicle.model ?? ''}',
+                      style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        const Icon(Icons.ev_station, color: Colors.green, size: 20),
+                        const SizedBox(width: 8),
+                        Text('Plug: ${widget.vehicle.plugType ?? 'Unknown'}'),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        const Icon(Icons.battery_charging_full, color: Colors.blue, size: 20),
+                        const SizedBox(width: 8),
+                        Text('Battery: ${widget.vehicle.batteryCapacityKwh ?? '?'} kWh'),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'To change vehicle specifications, please delete this vehicle from your garage and add a new one.',
+                      style: TextStyle(fontSize: 12, color: Colors.grey, fontStyle: FontStyle.italic),
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 32),
+              const Divider(),
+              const SizedBox(height: 24),
+
+              // 2. Editable Plate Number Field
+              const Text(
+                'Update Registration',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
               ),
               const SizedBox(height: 16),
               TextFormField(
                 controller: _plateController,
+                textCapitalization: TextCapitalization.characters,
                 decoration: const InputDecoration(
-                  labelText: 'Plate Number',
+                  labelText: 'Vehicle Plate Number',
                   prefixIcon: Icon(Icons.badge),
+                  border: OutlineInputBorder(),
                 ),
                 validator: (v) => v?.isEmpty ?? true ? 'Plate number is required' : null,
               ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _capacityController,
-                decoration: const InputDecoration(
-                  labelText: 'Battery Capacity (kWh)',
-                  prefixIcon: Icon(Icons.battery_charging_full),
-                ),
-                keyboardType: TextInputType.number,
-              ),
-              const SizedBox(height: 24),
-              const Text('Plug Type', style: TextStyle(fontWeight: FontWeight.bold)),
-              const SizedBox(height: 8),
-               DropdownButtonFormField<String>(
-                 initialValue: _selectedPlugType,
-                 items: _plugTypes
-                     .map((t) => DropdownMenuItem(value: t, child: Text(t)))
-                     .toList(),
-                 onChanged: (v) => setState(() => _selectedPlugType = v!),
-                 decoration: const InputDecoration(
-                   border: OutlineInputBorder(),
-                   prefixIcon: Icon(Icons.power),
-                 ),
-               ),
-              const SizedBox(height: 32),
+
+              const SizedBox(height: 40),
+
+              // 3. Save Button
               SizedBox(
                 width: double.infinity,
+                height: 54,
                 child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blue,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
                   onPressed: _isLoading ? null : _submit,
                   child: _isLoading
                       ? const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Text('Save Changes'),
+                    height: 20,
+                    width: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                  )
+                      : const Text('Save Changes', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                 ),
               ),
             ],
@@ -159,5 +171,3 @@ class _EditVehicleScreenState extends ConsumerState<EditVehicleScreen> {
     );
   }
 }
-
-

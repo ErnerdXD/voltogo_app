@@ -146,6 +146,20 @@ class SupabaseService {
     }
   }
 
+  /// Fetches the list of EV Models from the dataset for the dropdown
+  Future<List<Map<String, dynamic>>> getEvModels() async {
+    try {
+      final response = await _client
+          .from('ev_models')
+          .select()
+          .order('brand', ascending: true);
+
+      return List<Map<String, dynamic>>.from(response);
+    } catch (e) {
+      throw Exception('Failed to fetch EV models: $e');
+    }
+  }
+
   /// Create: Add a new EV
   Future<void> addVehicle({
     required String brand,

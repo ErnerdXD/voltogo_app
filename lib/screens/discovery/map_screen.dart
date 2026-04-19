@@ -308,15 +308,14 @@ class _MapScreenState extends ConsumerState<MapScreen> {
       ),
     );
   }
+
   // helper method to build the rotating blue dot
   Widget _buildUserLocationMarker() {
     return Transform.rotate(
-      // Convert degrees from compass to radians for Flutter
       angle: ((_heading ?? 0) * (math.pi / 180)),
       child: Stack(
         alignment: Alignment.center,
         children: [
-          // The directional "Beam" pointing UP
           if (_heading != null)
             Positioned(
               top: 0,
@@ -326,7 +325,6 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                 size: 32,
               ),
             ),
-          // The Blue Dot
           Container(
             width: 18,
             height: 18,
@@ -350,7 +348,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
 
   @override
   void dispose() {
-    _compassSubscription?.cancel(); //stop sensor when leave screen
+    _compassSubscription?.cancel();
     _mapController.dispose();
     super.dispose();
   }
