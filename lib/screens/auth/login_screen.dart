@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:voltogo_app/providers/user_provider.dart';
+import 'package:voltogo_app/providers/auth_provider.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -40,6 +41,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         }
       }
 
+      ref.invalidate(profileProvider);
       ref.invalidate(userProvider);
 
       // 4. Success! Navigate to the map

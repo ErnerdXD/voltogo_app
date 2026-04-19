@@ -122,6 +122,7 @@ class ProfileScreen extends ConsumerWidget {
                 width: double.infinity,
                 child: OutlinedButton(
                   onPressed: () async {
+                    ref.invalidate(profileProvider);
                     await Supabase.instance.client.auth.signOut();
                     if (context.mounted) {
                       context.go('/login');
