@@ -43,6 +43,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
       ref.invalidate(profileProvider);
       ref.invalidate(userProvider);
+      ref.invalidate(authUserProvider);
 
       // 4. Success! Navigate to the map
       if (mounted) context.go('/map');

@@ -36,37 +36,33 @@ final goRouter = GoRouter(
     }
 
     // Inside the redirect logic for orphaned sessions
-    if (session != null && !isLoggingIn && !isSplash) {
+    if (session != null) {
       try {
         // We add a 3-second timeout to prevent the router from hanging
         final userRecord = await Supabase.instance.client
             .from('users')
-            .select('id')
+            .select('id, role')
             .eq('auth_user_id', session.user.id)
             .maybeSingle()
             .timeout(const Duration(seconds: 3));
 
-        if (userRecord == null) {
+        if (userRecord == null && !isLoggingIn && !isSplash) {
           debugPrint('[Router] Orphaned session detected. Signing out...');
           await Supabase.instance.client.auth.signOut(scope: SignOutScope.local);
           return '/login';
         }
+
+        final role = userRecord?['role'] ?? 'member';
+
+        // If they are launching the app or just logged in, route by role!
+        if (isLoggingIn || isSplash) {
+          return (role == 'admin') ? '/admin' : '/map';
+        }
+
       } catch (e) {
-        // If the DB check fails (e.g., Timeout or Rate Limit),
-        // we let them through to the app rather than kicking them out.
         debugPrint('[Router] DB Check bypassed (Rate limit/Slow): $e');
+        if (isLoggingIn || isSplash) return '/map';
       }
-    }
-    // <caret> is here - we move to the next logic blocks
-
-    // If on splash screen with valid session, go to map
-    if (session != null && isSplash) {
-      return '/map';
-    }
-
-    // If session exists and on auth page, redirect to main app
-    if (session != null && isLoggingIn) {
-      return '/map';
     }
 
     return null;

@@ -266,6 +266,78 @@ class SupabaseService {
 
   // --- STATION CRUD (Module 2) ---
 
+  /// Create: Add a new physical charger (Slot) to a Station
+  Future<void> createSlot({
+    required String stationId,
+    required String slotCode,
+    required String connectorType,
+    required double pricePerKwh,
+  }) async {
+    // 1. Insert the new slot
+    await _client.from('slots').insert({
+      'stations_id': stationId,
+      'slot_code': slotCode,
+      'connector_type': connectorType,
+      'price_per_kwh': pricePerKwh,
+      'status': 'available', // Defaults to working
+    });
+
+    // 2. Increment the total_slots count on the parent station
+    final station = await _client.from('stations').select('total_slots').eq('id', stationId).single();
+    final currentSlots = station['total_slots'] ?? 0;
+    await _client.from('stations').update({'total_slots': currentSlots + 1}).eq('id', stationId);
+  }
+
+  /// Update: Toggle Maintenance Mode
+  Future<void> updateSlotStatus(String slotId, String newStatus) async {
+    await _client.from('slots').update({'status': newStatus}).eq('id', slotId);
+  }
+
+  /// Delete: Remove a slot permanently
+  Future<void> deleteSlot(String slotId, String stationId) async {
+    // 1. Delete the slot
+    await _client.from('slots').delete().eq('id', slotId);
+
+    // 2. Decrement the total_slots count on the parent station
+    final station = await _client.from('stations').select('total_slots').eq('id', stationId).single();
+    final currentSlots = station['total_slots'] ?? 1;
+    await _client.from('stations').update({'total_slots': (currentSlots - 1).clamp(0, 999)}).eq('id', stationId);
+  }
+
+  /// Create: Add a new Station (ADMIN ONLY)
+  Future<void> createStation({
+    required String name,
+    required String address,
+    required double latitude,
+    required double longitude,
+  }) async {
+    final user = currentUser;
+    if (user == null) throw Exception('No user logged in');
+
+    // Get the admin's public user ID to record who created it
+    final userRecords = await _client.from('users').select('id').eq('auth_user_id', user.id).single();
+
+    await _client.from('stations').insert({
+      'name': name,
+      'address': address,
+      'latitude': latitude,
+      'longitude': longitude,
+      'total_slots': 0, // Starts at 0, goes up when you add slots later
+      'status': 'active',
+      'created_by': userRecords['id'],
+    });
+  }
+
+  /// Update: Edit a Station (ADMIN ONLY)
+  Future<void> updateStation(String stationId, Map<String, dynamic> updates) async {
+    await _client.from('stations').update(updates).eq('id', stationId);
+  }
+
+  /// Delete: Remove a Station permanently (ADMIN ONLY)
+  Future<void> deleteStation(String stationId) async {
+    await _client.from('stations').delete().eq('id', stationId);
+  }
+
   /// Read: Fetch all stations
   Future<List<StationModel>> getStations() async {
     try {

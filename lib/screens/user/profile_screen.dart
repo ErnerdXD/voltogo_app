@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:voltogo_app/providers/auth_provider.dart';
 import '../../providers/theme_provider.dart';
+import '../../providers/user_provider.dart';
 
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
@@ -13,6 +14,7 @@ class ProfileScreen extends ConsumerWidget {
     final profileAsync = ref.watch(profileProvider);
     final authUser = ref.watch(authUserProvider);
     final themeMode = ref.watch(themeProvider);
+    final userAsync = ref.watch(userProvider);
 
     return Scaffold(
       body: profileAsync.when(
@@ -67,6 +69,23 @@ class ProfileScreen extends ConsumerWidget {
 
               const SizedBox(height: 32),
 
+              if (userAsync.value?.role == 'admin') ...[
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.indigo, // Distinct admin color
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                    ),
+                    icon: const Icon(Icons.dashboard_customize),
+                    label: const Text('Return to Admin Dashboard', style: TextStyle(fontWeight: FontWeight.bold)),
+                    onPressed: () => context.go('/admin'),
+                  ),
+                ),
+                const SizedBox(height: 12),
+              ],
+
               // Edit Profile Button
               SizedBox(
                 width: double.infinity,
@@ -86,32 +105,6 @@ class ProfileScreen extends ConsumerWidget {
                 ),
               ),
 
-              const SizedBox(height: 12),
-
-              // Settings Button
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  icon: const Icon(Icons.settings),
-                  label: const Text('Settings'),
-                  onPressed: () {
-                    // TODO: Navigate to settings page or show settings dialog
-                    showDialog(
-                      context: context,
-                      builder: (ctx) => AlertDialog(
-                        title: const Text('Settings'),
-                        content: const Text('Settings options go here.'),
-                        actions: [
-                          TextButton(
-                            onPressed: () => Navigator.of(ctx).pop(),
-                            child: const Text('Close'),
-                          ),
-                        ],
-                      ),
-                    );
-                  },
-                ),
-              ),
               const SizedBox(height: 12),
 
               // Theme Switch Button
@@ -135,7 +128,11 @@ class ProfileScreen extends ConsumerWidget {
                 child: OutlinedButton(
                   onPressed: () async {
                     ref.invalidate(profileProvider);
+                    ref.invalidate(userProvider);
+                    ref.invalidate(authUserProvider);
+
                     await Supabase.instance.client.auth.signOut();
+
                     if (context.mounted) {
                       context.go('/login');
                     }
