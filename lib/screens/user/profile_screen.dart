@@ -144,6 +144,33 @@ class ProfileScreen extends ConsumerWidget {
                   child: const Text('Logout'),
                 ),
               ),
+
+              const SizedBox(height: 90), // Increased padding above logo
+
+              // Centralized Big Brand Logo Below Logout
+              Center(
+                child: SizedBox(
+                  width: 140,
+                  height: 140,
+                  child: ClipOval(
+                    child: Image.asset(
+                      'assets/branding/voltogo_icon.png',
+                      fit: BoxFit.contain,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Center(
+                child: Text(
+                  'app v1.0.0',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: Colors.grey[600],
+                        fontWeight: FontWeight.w500,
+                        fontSize: 16,
+                      ),
+                ),
+              ),
             ],
           ),
         ),

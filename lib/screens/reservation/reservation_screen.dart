@@ -38,12 +38,8 @@ class _ReservationScreenState extends ConsumerState<ReservationScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(reservationProvider.notifier).fetchReservations();
-    });
-    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (mounted) {
-        setState(() {});
-        _checkAndCleanupExpiries();
-      }
+      setState(() {});
+      _checkAndCleanupExpiries();
     });
   }
 
@@ -179,7 +175,8 @@ class _ReservationScreenState extends ConsumerState<ReservationScreen> {
 
   // ── QR dialog ────────────────────────────────────────────────────────────────
   void _showQRDialog(BuildContext context, ReservationModel res) {
-    final qrUrl = 'https://ejeseyuqdubakwqnzjbz.supabase.co/functions/v1/charge?res_id=${res.id}';
+    final qrUrl =
+        'https://ejeseyuqdubakwqnzjbz.supabase.co/functions/v1/charge?res_id=${res.id}';
     Navigator.of(context).push(
       PageRouteBuilder(
         opaque: false,
@@ -323,7 +320,9 @@ class _ReservationScreenState extends ConsumerState<ReservationScreen> {
 
           return Padding(
             padding: EdgeInsets.only(
-              left: 24, right: 24, top: 24,
+              left: 24,
+              right: 24,
+              top: 24,
               bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
             ),
             child: SingleChildScrollView(
@@ -346,14 +345,16 @@ class _ReservationScreenState extends ConsumerState<ReservationScreen> {
                     padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
                       color: Colors.blue.withValues(alpha: 0.06),
-                      border: Border.all(color: Colors.blue.withValues(alpha: 0.3)),
+                      border: Border.all(
+                          color: Colors.blue.withValues(alpha: 0.3)),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Row(children: [
-                          const Icon(Icons.ev_station, color: Colors.blue, size: 20),
+                          const Icon(Icons.ev_station,
+                              color: Colors.blue, size: 20),
                           const SizedBox(width: 8),
                           Expanded(
                               child: Text(stationName,
@@ -433,8 +434,8 @@ class _ReservationScreenState extends ConsumerState<ReservationScreen> {
                       Text(
                         'Current battery: ~$currentBattery%  ·  '
                             'Capacity: ${batteryCapacity}kWh',
-                        style:
-                        const TextStyle(fontSize: 12, color: Colors.grey),
+                        style: const TextStyle(
+                            fontSize: 12, color: Colors.grey),
                       ),
                     ]),
                     const SizedBox(height: 12),
@@ -479,7 +480,8 @@ class _ReservationScreenState extends ConsumerState<ReservationScreen> {
                           child: Text(
                             '~${kwhToCharge.toStringAsFixed(1)} kWh  ·  '
                                 'Est. RM ${calculatedFee.toStringAsFixed(2)}',
-                            style: const TextStyle(fontWeight: FontWeight.w600),
+                            style:
+                            const TextStyle(fontWeight: FontWeight.w600),
                           ),
                         ),
                       ]),
@@ -498,10 +500,13 @@ class _ReservationScreenState extends ConsumerState<ReservationScreen> {
                           final d = await showDatePicker(
                             context: context,
                             initialDate: selectedDate,
-                            firstDate: DateTime(now.year, now.month, now.day),
+                            firstDate:
+                            DateTime(now.year, now.month, now.day),
                             lastDate: now.add(const Duration(days: 1)),
                           );
-                          if (d != null) setModalState(() => selectedDate = d);
+                          if (d != null) {
+                            setModalState(() => selectedDate = d);
+                          }
                         },
                       ),
                     ),
@@ -557,8 +562,9 @@ class _ReservationScreenState extends ConsumerState<ReservationScreen> {
                           );
                           if (t != null) {
                             final snapped = snapTime(t);
-                            final diff = (snapped.hour * 60 + snapped.minute) -
-                                (startTime.hour * 60 + startTime.minute);
+                            final diff =
+                                (snapped.hour * 60 + snapped.minute) -
+                                    (startTime.hour * 60 + startTime.minute);
                             if (diff < 30) {
                               messenger.showSnackBar(const SnackBar(
                                   content: Text(
@@ -597,8 +603,8 @@ class _ReservationScreenState extends ConsumerState<ReservationScreen> {
                         if (vehicleId == null) {
                           ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(
-                                  content:
-                                  Text('Please select a vehicle.')));
+                                  content: Text(
+                                      'Please select a vehicle.')));
                           return;
                         }
                         if (endTime == null) {
@@ -610,7 +616,8 @@ class _ReservationScreenState extends ConsumerState<ReservationScreen> {
                         }
                         setModalState(() => isSaving = true);
                         final nav = Navigator.of(context);
-                        final messenger = ScaffoldMessenger.of(context);
+                        final messenger =
+                        ScaffoldMessenger.of(context);
                         try {
                           final reservation = await ref
                               .read(reservationProvider.notifier)
@@ -654,7 +661,8 @@ class _ReservationScreenState extends ConsumerState<ReservationScreen> {
                         }
                       },
                       child: isSaving
-                          ? const CircularProgressIndicator(color: Colors.white)
+                          ? const CircularProgressIndicator(
+                          color: Colors.white)
                           : const Text('Pay & Reserve'),
                     ),
                   ),
@@ -673,36 +681,48 @@ class _ReservationScreenState extends ConsumerState<ReservationScreen> {
     final state = ref.watch(reservationProvider);
     final stationsAsync = ref.watch(stationsProvider);
 
+    final now = DateTime.now();
+
+    bool isTimerExpired(r) =>
+        r.status == 'to pay' &&
+            r.createdAt != null &&
+            now.isAfter(r.createdAt!.toLocal().add(const Duration(minutes: 10)));
+
     final activeRes = state.reservations
         .where((r) =>
-    r.status == 'active' ||
+    (r.status == 'active' ||
         r.status == 'paid' ||
-        r.status == 'to pay')
+        r.status == 'to pay') &&
+        !isTimerExpired(r))
         .toList();
     final pastRes = state.reservations
-        .where((r) => r.status == 'cancelled' || r.status == 'completed')
+        .where((r) =>
+    r.status == 'cancelled' ||
+        r.status == 'completed' ||
+        isTimerExpired(r))
         .toList();
 
-    ref.listen<Map<String, String>?>(pendingBookingStationProvider, (prev, next) {
-      if (next != null) {
-        if (activeRes.length >= 4) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-              content: Text('Maximum 4 active reservations allowed.')));
-        } else {
-          _showCreateReservationForm(
-            context,
-            slotId: next['slotId']!,
-            stationName: next['stationName']!,
-            stationAddress: next['stationAddress'] ?? '',
-            connectorType: next['connectorType'] ?? '',
-            connectorPrice: next['connectorPrice'] ?? '',
-            connectorStatus: next['connectorStatus'] ?? '',
-            slotCode: next['slotCode'] ?? '',
-          );
-        }
-        ref.read(pendingBookingStationProvider.notifier).state = null;
-      }
-    });
+    ref.listen<Map<String, String>?>(pendingBookingStationProvider,
+            (prev, next) {
+          if (next != null) {
+            if (activeRes.length >= 4) {
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                  content: Text('Maximum 4 active reservations allowed.')));
+            } else {
+              _showCreateReservationForm(
+                context,
+                slotId: next['slotId']!,
+                stationName: next['stationName']!,
+                stationAddress: next['stationAddress'] ?? '',
+                connectorType: next['connectorType'] ?? '',
+                connectorPrice: next['connectorPrice'] ?? '',
+                connectorStatus: next['connectorStatus'] ?? '',
+                slotCode: next['slotCode'] ?? '',
+              );
+            }
+            ref.read(pendingBookingStationProvider.notifier).state = null;
+          }
+        });
 
     return Scaffold(
       body: state.isLoading
@@ -714,9 +734,10 @@ class _ReservationScreenState extends ConsumerState<ReservationScreen> {
           Center(
             child: Text(
               'My reservation',
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
+              style: Theme.of(context)
+                  .textTheme
+                  .headlineSmall
+                  ?.copyWith(fontWeight: FontWeight.bold),
             ),
           ),
           const SizedBox(height: 16),
@@ -731,6 +752,9 @@ class _ReservationScreenState extends ConsumerState<ReservationScreen> {
               final isToPay = res.status == 'to pay';
               final isPaid =
                   res.status == 'paid' || res.status == 'active';
+              final expiry = (res.createdAt ?? res.startTime)
+                  ?.toLocal()
+                  .add(const Duration(minutes: 10));
 
               // Lookup station + slot
               StationModel? station;
@@ -757,9 +781,11 @@ class _ReservationScreenState extends ConsumerState<ReservationScreen> {
                     children: [
                       // Header row
                       Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        mainAxisAlignment:
+                        MainAxisAlignment.spaceBetween,
                         children: [
-                          Text('Booking #${res.id.substring(0, 8)}',
+                          Text(
+                              'Booking #${res.id.substring(0, 8)}',
                               style: const TextStyle(
                                   fontWeight: FontWeight.bold)),
                           Container(
@@ -767,8 +793,10 @@ class _ReservationScreenState extends ConsumerState<ReservationScreen> {
                                 horizontal: 10, vertical: 4),
                             decoration: BoxDecoration(
                               color: isToPay
-                                  ? Colors.orange.withValues(alpha: 0.1)
-                                  : Colors.green.withValues(alpha: 0.1),
+                                  ? Colors.orange
+                                  .withValues(alpha: 0.1)
+                                  : Colors.green
+                                  .withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(20),
                             ),
                             child: Text(
@@ -828,24 +856,31 @@ class _ReservationScreenState extends ConsumerState<ReservationScreen> {
                           const Icon(Icons.battery_charging_full,
                               size: 14, color: Colors.blue),
                           const SizedBox(width: 4),
-                          Text('Start battery: ${res.currentBattery}%',
+                          Text(
+                              'Start battery: ${res.currentBattery}%',
                               style: const TextStyle(
                                   fontSize: 12, color: Colors.blue)),
                         ]),
                       ],
 
                       // Expiry countdown
-                      if (isToPay) ...[
+                      if (expiry != null) ...[
                         const SizedBox(height: 8),
                         Row(children: [
                           const Icon(Icons.timer,
                               size: 14, color: Colors.red),
                           const SizedBox(width: 4),
-                          Text('Expires in: ${_getRemainingTime(res)}',
-                              style: const TextStyle(
-                                  color: Colors.red,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 13)),
+                          Text(
+                            expiry.isAfter(DateTime.now())
+                                ? 'Time left: '
+                                '${expiry.difference(DateTime.now()).inMinutes.remainder(60).toString().padLeft(2, '0')}:'
+                                '${(expiry.difference(DateTime.now()).inSeconds % 60).toString().padLeft(2, '0')}'
+                                : 'Expired',
+                            style: const TextStyle(
+                                color: Colors.red,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13),
+                          ),
                         ]),
                       ],
 
@@ -857,7 +892,8 @@ class _ReservationScreenState extends ConsumerState<ReservationScreen> {
                         children: [
                           if (isPaid) ...[
                             OutlinedButton.icon(
-                              icon: const Icon(Icons.qr_code, size: 18),
+                              icon: const Icon(Icons.qr_code,
+                                  size: 18),
                               label: const Text('QR Code'),
                               onPressed: () =>
                                   _showQRDialog(context, res),
@@ -909,24 +945,34 @@ class _ReservationScreenState extends ConsumerState<ReservationScreen> {
                 label: Text(_showPastReservations
                     ? 'Hide History'
                     : 'View Previous Reservations'),
-                onPressed: () => setState(
-                        () => _showPastReservations = !_showPastReservations),
+                onPressed: () => setState(() =>
+                _showPastReservations = !_showPastReservations),
               ),
             ),
             if (_showPastReservations)
-              ...pastRes.map((res) => Card(
-                color: Colors.grey[50],
-                margin: const EdgeInsets.only(bottom: 8),
-                child: ListTile(
-                  title: Text(
-                      'Booking #${res.id.substring(0, 8)}',
-                      style:
-                      const TextStyle(color: Colors.grey)),
-                  subtitle: Text('Status: ${res.status}',
-                      style: const TextStyle(
-                          color: Colors.redAccent)),
-                ),
-              )),
+              ...pastRes.map((res) {
+                final isExpiredTimer = res.status == 'to pay' &&
+                    res.createdAt != null &&
+                    now.isAfter(res.createdAt!
+                        .toLocal()
+                        .add(const Duration(minutes: 10)));
+                final displayStatus = isExpiredTimer
+                    ? 'Expired (unpaid)'
+                    : res.status ?? '';
+                return Card(
+                  color: Colors.grey[50],
+                  margin: const EdgeInsets.only(bottom: 8),
+                  child: ListTile(
+                    title: Text(
+                        'Booking #${res.id.substring(0, 8)}',
+                        style:
+                        const TextStyle(color: Colors.grey)),
+                    subtitle: Text('Status: $displayStatus',
+                        style: const TextStyle(
+                            color: Colors.redAccent)),
+                  ),
+                );
+              }),
           ],
         ],
       ),
@@ -1032,12 +1078,14 @@ class ReservationDetailsSheet extends ConsumerWidget {
                 const SizedBox(height: 8),
                 const Center(
                   child: Text('Scan QR to track charging',
-                      style: TextStyle(color: Colors.grey, fontSize: 12)),
+                      style:
+                      TextStyle(color: Colors.grey, fontSize: 12)),
                 ),
                 const SizedBox(height: 16),
                 if (station.name != null) ...[
                   Row(children: [
-                    const Icon(Icons.ev_station, size: 20, color: Colors.grey),
+                    const Icon(Icons.ev_station,
+                        size: 20, color: Colors.grey),
                     const SizedBox(width: 8),
                     Expanded(
                         child: Text(station.name!,
@@ -1048,7 +1096,8 @@ class ReservationDetailsSheet extends ConsumerWidget {
                 ],
                 if (station.address != null) ...[
                   Row(children: [
-                    const Icon(Icons.location_on, size: 20, color: Colors.grey),
+                    const Icon(Icons.location_on,
+                        size: 20, color: Colors.grey),
                     const SizedBox(width: 8),
                     Expanded(child: Text(station.address!)),
                   ]),
@@ -1078,11 +1127,65 @@ class ReservationDetailsSheet extends ConsumerWidget {
                     const Icon(Icons.battery_charging_full,
                         size: 20, color: Colors.blue),
                     const SizedBox(width: 8),
-                    Text('Start battery: ${reservation.currentBattery}%'),
+                    Text(
+                        'Start battery: ${reservation.currentBattery}%'),
                   ]),
                   const SizedBox(height: 8),
                 ],
                 const Divider(),
+
+                // --- Booking Price, Car Plate, Car Name ---
+                FutureBuilder<List<VehicleModel>>(
+                  future: SupabaseService().getVehicles(),
+                  builder: (context, snapshot) {
+                    final vehicles = snapshot.data ?? [];
+                    final vehicle = vehicles.firstWhere(
+                          (v) => v.id == reservation.vehicleId,
+                      orElse: () => VehicleModel(id: '', userId: ''),
+                    );
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (vehicle.id.isNotEmpty) ...[
+                          Row(children: [
+                            const Icon(Icons.directions_car,
+                                size: 20, color: Colors.grey),
+                            const SizedBox(width: 8),
+                            Text(
+                                '${vehicle.brand ?? '-'} ${vehicle.model ?? '-'}'),
+                          ]),
+                          const SizedBox(height: 4),
+                          Row(children: [
+                            const Icon(Icons.confirmation_number,
+                                size: 20, color: Colors.grey),
+                            const SizedBox(width: 8),
+                            Text('Plate: ${vehicle.plateNumber ?? '-'}'),
+                          ]),
+                        ],
+                      ],
+                    );
+                  },
+                ),
+                const SizedBox(height: 8),
+                FutureBuilder<List<PaymentModel>>(
+                  future: SupabaseService().getPaymentsForUser(),
+                  builder: (context, snapshot) {
+                    final payments = snapshot.data ?? [];
+                    final payment = payments.firstWhere(
+                          (p) => p.reservationId == reservation.id,
+                      orElse: () =>
+                          PaymentModel(id: '', reservationId: ''),
+                    );
+                    return Row(children: [
+                      const Icon(Icons.attach_money,
+                          size: 20, color: Colors.grey),
+                      const SizedBox(width: 8),
+                      Text(
+                          'Booking Price: RM${payment.amount?.toStringAsFixed(2) ?? '-'}'),
+                    ]);
+                  },
+                ),
+                const SizedBox(height: 8),
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton.icon(
@@ -1090,7 +1193,8 @@ class ReservationDetailsSheet extends ConsumerWidget {
                     label: const Text('Show on Map'),
                     onPressed: () {
                       Navigator.pop(context);
-                      context.go('/map?highlightStationId=${station?.id}');
+                      context.go(
+                          '/map?highlightStationId=${station?.id}');
                     },
                   ),
                 ),

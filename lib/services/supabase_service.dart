@@ -1,10 +1,11 @@
-// lib/services/supabase_service.dart
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:voltogo_app/models/profile_model.dart';
 import 'package:voltogo_app/models/vehicle_model.dart';
 import 'package:voltogo_app/models/station_model.dart';
 import 'package:voltogo_app/models/reservation_model.dart';
 import 'package:voltogo_app/models/payment_model.dart';
+import 'package:voltogo_app/models/slot_model.dart';
+
 
 class SupabaseService {
   // Singleton pattern for the service
@@ -13,6 +14,31 @@ class SupabaseService {
   SupabaseService._internal();
 
   final SupabaseClient _client = Supabase.instance.client;
+
+  /// Fetch a slot by its ID
+  Future<SlotModel?> getSlotById(String slotId) async {
+    final slot = await _client.from('slots').select().eq('id', slotId).maybeSingle();
+    if (slot == null) return null;
+    return SlotModel.fromJson(slot);
+  }
+  
+  /// Decrement station availability (totalSlots - 1)
+  Future<void> decrementStationAvailability(String stationId) async {
+    final station = await _client.from('stations').select('total_slots').eq('id', stationId).maybeSingle();
+    if (station == null) throw Exception('Station not found');
+    final current = (station['total_slots'] ?? 1) as int;
+    final newValue = (current - 1).clamp(0, 999);
+    await _client.from('stations').update({'total_slots': newValue}).eq('id', stationId);
+  }
+
+  /// Increment station availability (totalSlots + 1)
+  Future<void> incrementStationAvailability(String stationId) async {
+    final station = await _client.from('stations').select('total_slots').eq('id', stationId).maybeSingle();
+    if (station == null) throw Exception('Station not found');
+    final current = (station['total_slots'] ?? 0) as int;
+    final newValue = (current + 1).clamp(0, 999);
+    await _client.from('stations').update({'total_slots': newValue}).eq('id', stationId);
+  }
 
   // --- AUTH GETTER ---
   User? get currentUser => _client.auth.currentUser;
@@ -561,3 +587,4 @@ class SupabaseService {
     }
   }
 }
+

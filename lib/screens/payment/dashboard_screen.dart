@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'dart:math';
 import '../../providers/vehicle_provider.dart';
 import '../../providers/reservation_provider.dart';
 import '../../models/reservation_model.dart';
@@ -51,7 +52,6 @@ class DashboardScreen extends ConsumerWidget {
               .where((r) => r.vehicleId == vehicle.id && r.currentBattery != null)
               .toList()
               .fold<ReservationModel?>(null, (prev, r) => prev == null || (r.startTime != null && (prev.startTime == null || r.startTime!.isAfter(prev.startTime!))) ? r : prev);
-          final int minBattery = batteryCapacity.clamp(1, 100);
           final int currentBattery = latestRes?.currentBattery ?? ((vehicle.id.hashCode % 30) + 1);
           return SingleChildScrollView(
             child: Padding(
@@ -144,40 +144,63 @@ class DashboardScreen extends ConsumerWidget {
                   // Mock or real charging session data for the selected vehicle
                   Builder(
                     builder: (context) {
-                      // TODO: Replace with real data fetching logic
-                      final List<ChargingSessionModel> sessions = [
-                        ChargingSessionModel(
-                          id: '1',
-                          reservationId: 'r1',
-                          checkedInAt: DateTime.now().subtract(const Duration(days: 5)),
-                          energyConsumedKwh: 12.5,
-                          co2SavedKg: 8.2,
-                        ),
-                        ChargingSessionModel(
-                          id: '2',
-                          reservationId: 'r2',
-                          checkedInAt: DateTime.now().subtract(const Duration(days: 3)),
-                          energyConsumedKwh: 10.0,
-                          co2SavedKg: 6.7,
-                        ),
-                        ChargingSessionModel(
-                          id: '3',
-                          reservationId: 'r3',
-                          checkedInAt: DateTime.now().subtract(const Duration(days: 1)),
-                          energyConsumedKwh: 15.2,
-                          co2SavedKg: 9.1,
-                        ),
-                      ];
+                      final List<ChargingSessionModel> sessions = generateRandomSessionsForVehicle(vehicle.id);
                       return Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text('Energy Usage (kWh)', style: Theme.of(context).textTheme.bodyLarge),
                           const SizedBox(height: 8),
                           EnergyChart(sessions: sessions),
+                          const SizedBox(height: 4),
+                          Text(
+                            'This chart shows your historical energy consumption (kWh) for each charging session.',
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
                           const SizedBox(height: 24),
                           Text('CO₂ Savings (kg)', style: Theme.of(context).textTheme.bodyLarge),
                           const SizedBox(height: 8),
                           EnergyChart(sessions: sessions, showCO2: true),
+                          const SizedBox(height: 4),
+                          Text(
+                            'This chart shows the estimated CO₂ emissions you saved by charging your EV instead of using a petrol car.',
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                          const SizedBox(height: 32),
+                          // Charging History Section
+                          Text('Charging History', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                          const SizedBox(height: 8),
+                          ...sessions.map((s) => Card(
+                            margin: const EdgeInsets.only(bottom: 8),
+                            child: ListTile(
+                              leading: const Icon(Icons.ev_station, color: Colors.blue),
+                              title: Text(s.checkedInAt != null ? '${s.checkedInAt!.month}/${s.checkedInAt!.day}/${s.checkedInAt!.year}' : '-'),
+                              subtitle: Text('Energy: ${s.energyConsumedKwh?.toStringAsFixed(2) ?? '-'} kWh\nCO₂ Savings: ${s.co2SavedKg?.toStringAsFixed(2) ?? '-'} kg'),
+                            ),
+                          )),
+                          const SizedBox(height: 32),
+                          // Suggestions & Recommendations Section
+                          Text('Suggestions & Recommendations', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                          const SizedBox(height: 8),
+                          Card(
+                            color: Colors.green[50],
+                            child: Padding(
+                              padding: const EdgeInsets.all(14.0),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text('For Your Car:', style: Theme.of(context).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.bold)),
+                                  const SizedBox(height: 4),
+                                  const Text('• Keep your battery between 20-80% for optimal longevity.'),
+                                  const Text('• Regularly check tire pressure for better efficiency.'),
+                                  const SizedBox(height: 12),
+                                  Text('For Charging:', style: Theme.of(context).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.bold)),
+                                  const SizedBox(height: 4),
+                                  const Text('• Charge during off-peak hours for lower rates and greener energy.'),
+                                  const Text('• Plan longer trips with charging stops in advance.'),
+                                ],
+                              ),
+                            ),
+                          ),
                         ],
                       );
                     },
@@ -191,5 +214,25 @@ class DashboardScreen extends ConsumerWidget {
         error: (e, st) => Center(child: Text('Error: $e')),
       ),
     );
+  }
+
+  // Helper to generate random sessions for a vehicle
+  List<ChargingSessionModel> generateRandomSessionsForVehicle(String vehicleId) {
+    final rand = Random(vehicleId.hashCode);
+    final now = DateTime.now();
+    final int sessionCount = 3 + rand.nextInt(4); // 3-6 sessions
+    return List.generate(sessionCount, (i) {
+      final daysAgo = 1 + rand.nextInt(10) + i * 2;
+      final date = now.subtract(Duration(days: daysAgo));
+      final kwh = 8.0 + rand.nextDouble() * 10.0; // 8-18 kWh
+      final co2 = kwh * (0.6 + rand.nextDouble() * 0.4); // 0.6-1.0 kg/kWh
+      return ChargingSessionModel(
+        id: '${vehicleId}_$i',
+        reservationId: 'r${i + 1}',
+        checkedInAt: date,
+        energyConsumedKwh: double.parse(kwh.toStringAsFixed(2)),
+        co2SavedKg: double.parse(co2.toStringAsFixed(2)),
+      );
+    });
   }
 }

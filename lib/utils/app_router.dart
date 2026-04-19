@@ -110,14 +110,6 @@ final goRouter = GoRouter(
         StatefulShellBranch(
           routes: [
             GoRoute(
-              path: '/activity',
-              builder: (context, state) => const ActivityScreen(),
-            ),
-          ],
-        ),
-        StatefulShellBranch(
-          routes: [
-            GoRoute(
               path: '/stats',
               builder: (context, state) => const DashboardScreen(),
             ),

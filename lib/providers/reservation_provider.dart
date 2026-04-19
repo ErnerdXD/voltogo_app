@@ -62,6 +62,18 @@ class ReservationNotifier extends StateNotifier<ReservationState> {
         endTime: endTime,
         currentBattery: currentBattery, // Now non-nullable
       );
+      // Decrement station availability after successful reservation
+      if (reservation != null && reservation.slotId != null) {
+        try {
+          final slot = await _service.getSlotById(reservation.slotId!);
+          if (slot != null) {
+            await _service.decrementStationAvailability(slot.stationsId);
+          }
+        } catch (e) {
+          // Log error but do not block reservation creation
+          print('[ReservationNotifier] Error decrementing station availability: $e');
+        }
+      }
       await fetchReservations();
       return reservation;
     } catch (e) {

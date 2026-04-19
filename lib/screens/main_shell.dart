@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:voltogo_app/widgets/settings_sheet.dart';
 
 class MainShell extends StatelessWidget {
   const MainShell({
@@ -29,7 +28,7 @@ class MainShell extends StatelessWidget {
           borderRadius: BorderRadius.circular(28),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.10),
+              color: const Color.fromRGBO(0, 0, 0, 0.10),
               blurRadius: 16,
               offset: const Offset(0, 4),
             ),
@@ -59,17 +58,18 @@ class MainShell extends StatelessWidget {
                 ),
                 label: 'Map',
               ),
-              BottomNavigationBarItem(
-                icon: Padding(
-                  padding: EdgeInsets.only(top: 8.0),
-                  child: Icon(Icons.history_outlined),
-                ),
-                activeIcon: Padding(
-                  padding: EdgeInsets.only(top: 8.0),
-                  child: Icon(Icons.history),
-                ),
-                label: 'Activity',
-              ),
+              // Removed Activity tab
+              // BottomNavigationBarItem(
+              //   icon: Padding(
+              //     padding: EdgeInsets.only(top: 8.0),
+              //     child: Icon(Icons.history_outlined),
+              //   ),
+              //   activeIcon: Padding(
+              //     padding: EdgeInsets.only(top: 8.0),
+              //     child: Icon(Icons.history),
+              //   ),
+              //   label: 'Activity',
+              // ),
               BottomNavigationBarItem(
                 icon: Padding(
                   padding: EdgeInsets.only(top: 8.0),

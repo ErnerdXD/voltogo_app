@@ -378,7 +378,7 @@ class _StationDetailSheetState extends ConsumerState<StationDetailSheet> {
                           context.go('/map?highlightStationId=${ocmStation.id}');
                         },
                         icon: const Icon(Icons.map, color: Colors.blue),
-                        label: const Text('Show on Map'),
+                        label: const Text(''),
                         style: OutlinedButton.styleFrom(
                           foregroundColor: Colors.blue,
                           padding: const EdgeInsets.symmetric(vertical: 14),
