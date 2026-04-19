@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart'; // Added Supabase import
 import 'package:voltogo_app/providers/auth_provider.dart';
+import 'package:voltogo_app/providers/user_provider.dart'; // Added UserProvider import
 
 class EditProfileScreen extends ConsumerStatefulWidget {
   const EditProfileScreen({super.key});
@@ -14,7 +16,9 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _nameController;
   late TextEditingController _phoneController;
+
   bool _isLoading = false;
+  bool _isSaving = false; // Added this variable!
 
   @override
   void initState() {
@@ -69,6 +73,62 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _confirmDeleteAccount(BuildContext context) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete Account', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+        content: const Text(
+          'Are you sure you want to permanently delete your account? \n\n'
+              'This action cannot be undone and all your personal data and saved vehicles will be removed.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Delete Forever'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      setState(() => _isSaving = true);
+      try {
+        // Grab the public.users.id from Riverpod
+        final userModel = ref.read(userProvider).value;
+        if (userModel == null) {
+          throw Exception('User record not found. Please try logging in again.');
+        }
+        final publicUserId = userModel.id;
+
+        // 1. Soft delete the data in Supabase using the CORRECT ID
+        await ref.read(userProvider.notifier).deleteAccount(publicUserId);
+
+        // 2. Log the user out of the authentication session using Supabase
+        await Supabase.instance.client.auth.signOut();
+
+        if (mounted) {
+          context.go('/login');
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Failed to delete account: $e')),
+          );
+          setState(() => _isSaving = false);
+        }
+      }
     }
   }
 
@@ -132,6 +192,27 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                         : const Text('Save Changes'),
                   ),
                 ),
+                const SizedBox(height: 32),
+                const Divider(),
+                const SizedBox(height: 16),
+
+                SizedBox(
+                  width: double.infinity,
+                  height: 50,
+                  child: OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.red,
+                      side: const BorderSide(color: Colors.red),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    // Updated to just pass context, no need for user.id here!
+                    onPressed: _isSaving ? null : () => _confirmDeleteAccount(context),
+                    icon: const Icon(Icons.delete_forever),
+                    label: const Text('Delete Account', style: TextStyle(fontWeight: FontWeight.bold)),
+                  ),
+                ),
               ],
             ),
           ),
@@ -145,13 +226,13 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
               const SizedBox(height: 16),
               Text('Error: $err'),
               const SizedBox(height: 16),
-               ElevatedButton(
-                 onPressed: () {
-                   // ignore: unused_result
-                   ref.refresh(profileProvider);
-                 },
-                 child: const Text('Retry'),
-               ),
+              ElevatedButton(
+                onPressed: () {
+                  // ignore: unused_result
+                  ref.refresh(profileProvider);
+                },
+                child: const Text('Retry'),
+              ),
             ],
           ),
         ),

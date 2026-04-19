@@ -25,20 +25,18 @@ class SupabaseService {
       // DEBUG: Verify we are actually authenticated
       print('[DEBUG] Auth UID: ${authUser.id}');
       print('[DEBUG] Current User Session: ${_client.auth.currentSession != null}');
-      print('[DEBUG] Current JWT: ${_client.auth.currentSession?.accessToken != null}');
-      // Step 1: Create the record in the 'public.users' table
-      // We NEED the returned 'id' to link to the profile
-      final userResponse = await _client.from('users').insert({
-        'auth_user_id': authUser.id,
-        'role': 'member',
-      }).select('id').maybeSingle();
 
-      if (userResponse == null) {
-        throw Exception('Failed to create user record.');
-      }
+      // Step 1: Create the record in the 'public.users' table
+      final userResponse = await _client.from('users').upsert(
+        {
+          'auth_user_id': authUser.id,
+          'role': 'member',
+        },
+        onConflict: 'auth_user_id', // Tells it to look for our UNIQUE lock!
+      ).select('id').single();
 
       final String publicId = userResponse['id'];
-      print('[DEBUG] Public User ID Created: $publicId');
+      print('[DEBUG] Public User ID Created/Found: $publicId');
 
       // Step 2: Create the profile using the PUBLIC ID, not the Auth ID
       await _client.from('profiles').insert({
@@ -121,6 +119,58 @@ class SupabaseService {
     } catch (e) {
       print('[SupabaseService] updateProfile failed: $e');
       rethrow;
+    }
+  }
+
+  Future<void> deleteAccount(String publicUserId) async {
+    try {
+      final activeReservations = await _client
+          .from('reservations')
+          .select('id')
+          .eq('user_id', publicUserId)
+          .neq('status', 'completed')
+          .neq('status', 'cancelled')
+          .limit(1);
+
+      if (activeReservations.isNotEmpty) {
+        throw Exception(
+            'Account cannot be deleted. You have active or unpaid reservations. '
+                'Please complete or cancel them first.'
+        );
+      }
+
+      // 1. Delete all vehicles
+      await _client
+          .from('vehicles')
+          .delete()
+          .eq('user_id', publicUserId);
+
+      // 2. Scramble Profile (Anonymization)
+      await _client
+          .from('profiles')
+          .update({
+        'full_name': 'Deleted User',
+        'phone': null,
+        'email': null,
+        'payment_method': null,
+        'stripe_payment_method_id': null,
+        'avatar_url': null,
+      })
+          .eq('user_id', publicUserId);
+
+      // 3. Mark the user as deleted (Soft-Delete)
+      await _client
+          .from('users')
+          .update({'is_deleted': true})
+          .eq('id', publicUserId);
+
+    } catch (e) {
+      print('[SupabaseService] Error in soft delete: $e');
+      // We want to pass the specific reservation error message directly to the user!
+      if (e is Exception && e.toString().contains('Account cannot be deleted')) {
+        rethrow;
+      }
+      throw Exception('Failed to delete account data.');
     }
   }
 

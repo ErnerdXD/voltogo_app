@@ -196,15 +196,18 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                     maxZoom: 18.0,
                     minZoom: 5.0,
                     interactionOptions: const InteractionOptions(
-                      flags: InteractiveFlag.all,
-                      rotationThreshold: 20.0,
-                      pinchZoomThreshold: 0.5,
+                      flags: InteractiveFlag.drag | InteractiveFlag.pinchZoom | InteractiveFlag.doubleTapZoom,
                     ),
                   ),
                   children: [
                     TileLayer(
                       urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                       userAgentPackageName: 'com.example.voltogo_app',
+
+                      keepBuffer: 3,
+                      panBuffer: 2,
+                      retinaMode: true,
+                      
                       tileProvider: NetworkTileProvider(
                         headers: {
                           'User-Agent': 'VoltogoApp/1.0',
