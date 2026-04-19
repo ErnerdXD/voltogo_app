@@ -125,7 +125,7 @@ class _AddVehicleScreenState extends ConsumerState<AddVehicleScreen> {
                   border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.directions_car),
                 ),
-                value: _selectedBrand,
+                initialValue: _selectedBrand,
                 items: _availableBrands.map((brand) {
                   return DropdownMenuItem(value: brand, child: Text(brand));
                 }).toList(),
@@ -155,7 +155,7 @@ class _AddVehicleScreenState extends ConsumerState<AddVehicleScreen> {
                   border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.electric_car),
                 ),
-                value: _selectedEvModel,
+                initialValue: _selectedEvModel,
                 isExpanded: true, // Prevents long model names from breaking the UI
                 // Disable the dropdown entirely if no brand is selected yet
                 items: _selectedBrand == null
