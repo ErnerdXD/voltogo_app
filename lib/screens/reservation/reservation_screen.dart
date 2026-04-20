@@ -29,16 +29,21 @@ class ReservationScreen extends ConsumerStatefulWidget {
 }
 
 class _ReservationScreenState extends ConsumerState<ReservationScreen> {
-  bool _showPastReservations = false;
   Timer? _timer;
   final Set<String> _isDeletingIds = {};
+  int _selectedTabIndex = 0;
+  final List<String> _tabLabels = [
+    'All', 'To Pay', 'Paid', 'Cancelled', 'Refund'
+  ];
 
   @override
   void initState() {
     super.initState();
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) setState(() {});
+    });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(reservationProvider.notifier).fetchReservations();
-      setState(() {});
       _checkAndCleanupExpiries();
     });
   }
@@ -57,37 +62,44 @@ class _ReservationScreenState extends ConsumerState<ReservationScreen> {
           !_isDeletingIds.contains(res.id)) {
         if (now.isAfter(
             res.createdAt!.toLocal().add(const Duration(minutes: 10)))) {
-          _deletePermanently(res.id);
+          _softExpire(res.id);
         }
       }
     }
   }
 
-  Future<void> _deletePermanently(String id) async {
+  Future<void> _softExpire(String id) async {
     if (_isDeletingIds.contains(id)) return;
     _isDeletingIds.add(id);
     try {
-      await Supabase.instance.client.from('reservations').delete().eq('id', id);
+      await Supabase.instance.client
+          .from('reservations')
+          .update({'status': 'expired'})
+          .eq('id', id);
       await ref.read(reservationProvider.notifier).fetchReservations();
     } catch (e) {
-      debugPrint('Error deleting expired reservation: $e');
+      debugPrint('Error expiring reservation: $e');
     } finally {
       _isDeletingIds.remove(id);
     }
   }
 
-  String _getRemainingTime(ReservationModel res) {
-    if (res.createdAt == null) return '10:00';
-    final diff = res.createdAt!
-        .toLocal()
-        .add(const Duration(minutes: 10))
-        .difference(DateTime.now());
-    if (diff.isNegative) return '00:00';
-    return '${diff.inMinutes.remainder(60).toString().padLeft(2, '0')}:'
-        '${(diff.inSeconds % 60).toString().padLeft(2, '0')}';
+  List<ReservationModel> _filteredReservations(List<ReservationModel> reservations) {
+    switch (_selectedTabIndex) {
+      case 1:
+        return reservations.where((r) => r.status == 'to pay').toList();
+      case 2:
+        return reservations.where((r) => r.status == 'paid' || r.status == 'active').toList();
+      case 3:
+        return reservations.where((r) => r.status == 'cancelled').toList();
+      case 4:
+        return reservations.where((r) => r.status == 'refund').toList();
+      default:
+        return reservations;
+    }
   }
 
-  // ── Cancel dialog ────────────────────────────────────────────────────────────
+  // ── Cancel dialog ─────────────────────────────────────────────────────────
   Future<void> _showCancelDialog(BuildContext context, String reservationId) {
     String? selectedReason;
     bool isProcessing = false;
@@ -173,7 +185,101 @@ class _ReservationScreenState extends ConsumerState<ReservationScreen> {
     );
   }
 
-  // ── QR dialog ────────────────────────────────────────────────────────────────
+  Future<void> _showRefundDialog(BuildContext context, String reservationId) async {
+    String? refundReason;
+    bool isProcessing = false;
+    final reasons = [
+      'Change of plans',
+      'Incorrect booking',
+      'Found a better price',
+      'Other',
+    ];
+    await showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setS) => AlertDialog(
+          title: const Text('Request Refund'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Select reason for refund:'),
+                const SizedBox(height: 12),
+                ...reasons.map((reason) {
+                  final sel = refundReason == reason;
+                  return InkWell(
+                    onTap: () => setS(() => refundReason = reason),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 6),
+                      child: Row(children: [
+                        Icon(
+                          sel ? Icons.radio_button_checked : Icons.radio_button_off,
+                          color: sel ? Colors.blue : Colors.grey,
+                          size: 20,
+                        ),
+                        const SizedBox(width: 12),
+                        Text(reason),
+                      ]),
+                    ),
+                  );
+                }),
+                if (refundReason == 'Other') ...[
+                  const SizedBox(height: 12),
+                  TextField(
+                    decoration: const InputDecoration(
+                      labelText: 'Enter reason',
+                      border: OutlineInputBorder(),
+                    ),
+                    onChanged: (val) => setS(() => refundReason = val),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: isProcessing ? null : () => Navigator.pop(ctx),
+              child: const Text('Go Back'),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red, foregroundColor: Colors.white),
+              onPressed: (isProcessing || refundReason == null || refundReason!.isEmpty)
+                  ? null
+                  : () async {
+                setS(() => isProcessing = true);
+                final messenger = ScaffoldMessenger.of(ctx);
+                final nav = Navigator.of(ctx);
+                            try {
+                              await Supabase.instance.client
+                                  .from('reservations')
+                                  .update({
+                                'status': 'refund',
+                              }).eq('id', reservationId);
+                              await ref
+                                  .read(reservationProvider.notifier)
+                                  .fetchReservations();
+                              nav.pop();
+                              messenger.showSnackBar(SnackBar(
+                                  content: Text('Refund requested. Reason: '
+                                      '${refundReason ?? "No reason provided"}')));
+                            } catch (e) {
+                              messenger.showSnackBar(
+                                  SnackBar(content: Text('Error: $e')));
+                            } finally {
+                              setS(() => isProcessing = false);
+                            }
+              },
+              child: const Text('Confirm Refund'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ── QR dialog ─────────────────────────────────────────────────────────────
   void _showQRDialog(BuildContext context, ReservationModel res) {
     final qrUrl =
         'https://ernerdxd.github.io/voltogo_app/web/charge.html?res_id=${res.id}';
@@ -192,19 +298,14 @@ class _ReservationScreenState extends ConsumerState<ReservationScreen> {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Text(
-                      'Scan to Track Charging',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
+                    const Text('Scan to Track Charging',
+                        style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold)),
                     const SizedBox(height: 8),
-                    const Text(
-                      'Point another phone at this code',
-                      style: TextStyle(color: Colors.white60, fontSize: 14),
-                    ),
+                    const Text('Point another phone at this code',
+                        style: TextStyle(color: Colors.white60, fontSize: 14)),
                     const SizedBox(height: 40),
                     Center(
                       child: Container(
@@ -221,10 +322,8 @@ class _ReservationScreenState extends ConsumerState<ReservationScreen> {
                       ),
                     ),
                     const SizedBox(height: 40),
-                    const Text(
-                      'Tap anywhere to close',
-                      style: TextStyle(color: Colors.white38, fontSize: 13),
-                    ),
+                    const Text('Tap anywhere to close',
+                        style: TextStyle(color: Colors.white38, fontSize: 13)),
                   ],
                 ),
               ),
@@ -235,7 +334,7 @@ class _ReservationScreenState extends ConsumerState<ReservationScreen> {
     );
   }
 
-  // ── Details bottom sheet ─────────────────────────────────────────────────────
+  // ── Details bottom sheet ──────────────────────────────────────────────────
   void _showDetailsSheet(BuildContext context, ReservationModel res) {
     showModalBottomSheet(
       context: context,
@@ -247,7 +346,7 @@ class _ReservationScreenState extends ConsumerState<ReservationScreen> {
     );
   }
 
-  // ── Create reservation form ──────────────────────────────────────────────────
+  // ── Create reservation form ───────────────────────────────────────────────
   void _showCreateReservationForm(
       BuildContext context, {
         required String slotId,
@@ -258,17 +357,6 @@ class _ReservationScreenState extends ConsumerState<ReservationScreen> {
         String connectorStatus = '',
         String slotCode = '',
       }) {
-    final activeCount = ref
-        .read(reservationProvider)
-        .reservations
-        .where((r) => r.status != 'cancelled')
-        .length;
-    if (activeCount >= 4) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Maximum 4 active reservations allowed.')));
-      return;
-    }
-
     final now = DateTime.now();
     DateTime selectedDate = now;
     int initialMinutes = (now.minute / 30).round() * 30;
@@ -294,7 +382,9 @@ class _ReservationScreenState extends ConsumerState<ReservationScreen> {
         return StatefulBuilder(builder: (context, setModalState) {
           TimeOfDay snapTime(TimeOfDay t) {
             int m = (t.minute / 30).round() * 30;
-            if (m == 60) return TimeOfDay(hour: (t.hour + 1) % 24, minute: 0);
+            if (m == 60) {
+              return TimeOfDay(hour: (t.hour + 1) % 24, minute: 0);
+            }
             return TimeOfDay(hour: t.hour, minute: m);
           }
 
@@ -302,8 +392,8 @@ class _ReservationScreenState extends ConsumerState<ReservationScreen> {
           VehicleModel? selectedVehicle;
           if (vehicles.isNotEmpty) {
             try {
-              selectedVehicle = vehicles.firstWhere(
-                      (v) => v.id == (selectedVehicleIdLocal));
+              selectedVehicle =
+                  vehicles.firstWhere((v) => v.id == selectedVehicleIdLocal);
             } catch (_) {
               selectedVehicle = vehicles.first;
             }
@@ -338,8 +428,6 @@ class _ReservationScreenState extends ConsumerState<ReservationScreen> {
                             ?.copyWith(fontWeight: FontWeight.bold)),
                   ),
                   const SizedBox(height: 20),
-
-                  // Station card
                   Container(
                     width: double.infinity,
                     padding: const EdgeInsets.all(14),
@@ -403,8 +491,6 @@ class _ReservationScreenState extends ConsumerState<ReservationScreen> {
                     ),
                   ),
                   const SizedBox(height: 20),
-
-                  // Vehicle dropdown
                   vehiclesAsync.when(
                     data: (v) => DropdownButtonFormField<String>(
                       initialValue: selectedVehicleIdLocal ??
@@ -424,23 +510,17 @@ class _ReservationScreenState extends ConsumerState<ReservationScreen> {
                     error: (e, st) => const Text('Error loading vehicles'),
                   ),
                   const SizedBox(height: 12),
-
-                  // Current battery info
                   if (selectedVehicle != null) ...[
                     Row(children: [
                       const Icon(Icons.battery_charging_full,
                           color: Colors.blue, size: 16),
                       const SizedBox(width: 6),
                       Text(
-                        'Current battery: ~$currentBattery%  ·  '
-                            'Capacity: ${batteryCapacity}kWh',
-                        style: const TextStyle(
-                            fontSize: 12, color: Colors.grey),
+                        'Current battery: ~$currentBattery%  ·  Capacity: ${batteryCapacity}kWh',
+                        style: const TextStyle(fontSize: 12, color: Colors.grey),
                       ),
                     ]),
                     const SizedBox(height: 12),
-
-                    // Target battery input
                     TextFormField(
                       initialValue: targetBattery.toString(),
                       keyboardType: TextInputType.number,
@@ -462,8 +542,6 @@ class _ReservationScreenState extends ConsumerState<ReservationScreen> {
                       },
                     ),
                     const SizedBox(height: 12),
-
-                    // Fee summary
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
@@ -478,18 +556,14 @@ class _ReservationScreenState extends ConsumerState<ReservationScreen> {
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            '~${kwhToCharge.toStringAsFixed(1)} kWh  ·  '
-                                'Est. RM ${calculatedFee.toStringAsFixed(2)}',
-                            style:
-                            const TextStyle(fontWeight: FontWeight.w600),
+                            '~${kwhToCharge.toStringAsFixed(1)} kWh  ·  Est. RM ${calculatedFee.toStringAsFixed(2)}',
+                            style: const TextStyle(fontWeight: FontWeight.w600),
                           ),
                         ),
                       ]),
                     ),
                     const SizedBox(height: 16),
                   ],
-
-                  // Date picker
                   Row(children: [
                     Expanded(
                       child: OutlinedButton.icon(
@@ -512,8 +586,6 @@ class _ReservationScreenState extends ConsumerState<ReservationScreen> {
                     ),
                   ]),
                   const SizedBox(height: 8),
-
-                  // Time pickers
                   Row(children: [
                     Expanded(
                       child: OutlinedButton.icon(
@@ -584,8 +656,6 @@ class _ReservationScreenState extends ConsumerState<ReservationScreen> {
                     ),
                   ]),
                   const SizedBox(height: 24),
-
-                  // Submit
                   SizedBox(
                     width: double.infinity,
                     height: 50,
@@ -593,76 +663,90 @@ class _ReservationScreenState extends ConsumerState<ReservationScreen> {
                       style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.blue,
                           foregroundColor: Colors.white),
-                      onPressed: isSaving
-                          ? null
-                          : () async {
-                        final vehicleId = selectedVehicleIdLocal ??
-                            (vehicles.isNotEmpty
-                                ? vehicles.first.id
-                                : null);
-                        if (vehicleId == null) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
+                       onPressed: isSaving
+                           ? null
+                           : () async {
+                         final vehicleId = selectedVehicleIdLocal ??
+                             (vehicles.isNotEmpty
+                                 ? vehicles.first.id
+                                 : null);
+                         if (vehicleId == null) {
+                           ScaffoldMessenger.of(context).showSnackBar(
+                               const SnackBar(
+                                   content:
+                                   Text('Please select a vehicle.')));
+                           return;
+                         }
+                         if (endTime == null) {
+                           ScaffoldMessenger.of(context).showSnackBar(
+                               const SnackBar(
+                                   content: Text(
+                                       'Please pick an end time.')));
+                           return;
+                         }
+                         // Ensure endTime is in the future
+                         final nowDT = DateTime.now();
+                         final startDT = DateTime(
+                             selectedDate.year,
+                             selectedDate.month,
+                             selectedDate.day,
+                             startTime.hour,
+                             startTime.minute);
+                         final endDT = DateTime(
+                             selectedDate.year,
+                             selectedDate.month,
+                             selectedDate.day,
+                             endTime!.hour,
+                             endTime!.minute);
+                         if (!endDT.isAfter(nowDT)) {
+                           ScaffoldMessenger.of(context).showSnackBar(
+                               SnackBar(content: Text(
+                                   'End time must be in the future. Please pick a valid end time.')));
+                           return;
+                         }
+                         debugPrint('DEBUG: Creating reservation with startTime: '
+                             '[33m[1m[4m[7m'
+                             '[0m' + startDT.toIso8601String() + ', endTime: ' + endDT.toIso8601String() + ', now: ' + nowDT.toIso8601String());
+                         setModalState(() => isSaving = true);
+                         final nav = Navigator.of(context);
+                         final messenger = ScaffoldMessenger.of(context);
+                         try {
+                            final reservation = await ref
+                                .read(reservationProvider.notifier)
+                                .createReservation(
+                              slotId: slotId,
+                              vehicleId: vehicleId,
+                              startTime: startDT,
+                              endTime: endDT,
+                              currentBattery: currentBattery,
+                              targetBattery: targetBattery,
+                            );
+                            if (reservation != null) {
+                              // Refresh stationsProvider so slot/station availability updates in UI
+                              ref.refresh(stationsProvider);
+                              nav.pop();
+                              await nav.push(MaterialPageRoute(
+                                builder: (_) => PaymentScreen(
+                                  reservation: reservation,
+                                  amount: (calculatedFee * 100)
+                                      .toInt()
+                                      .clamp(100, 999999),
+                                ),
+                              ));
+                            } else {
+                              messenger.showSnackBar(const SnackBar(
                                   content: Text(
-                                      'Please select a vehicle.')));
-                          return;
-                        }
-                        if (endTime == null) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                  content: Text(
-                                      'Please pick an end time.')));
-                          return;
-                        }
-                        setModalState(() => isSaving = true);
-                        final nav = Navigator.of(context);
-                        final messenger =
-                        ScaffoldMessenger.of(context);
-                        try {
-                          final reservation = await ref
-                              .read(reservationProvider.notifier)
-                              .createReservation(
-                            slotId: slotId,
-                            vehicleId: vehicleId,
-                            startTime: DateTime(
-                                selectedDate.year,
-                                selectedDate.month,
-                                selectedDate.day,
-                                startTime.hour,
-                                startTime.minute),
-                            endTime: DateTime(
-                                selectedDate.year,
-                                selectedDate.month,
-                                selectedDate.day,
-                                endTime!.hour,
-                                endTime!.minute),
-                            currentBattery: currentBattery,
-                          );
-                          if (reservation != null) {
-                            nav.pop();
-                            await nav.push(MaterialPageRoute(
-                              builder: (_) => PaymentScreen(
-                                reservation: reservation,
-                                amount: (calculatedFee * 100)
-                                    .toInt()
-                                    .clamp(100, 999999),
-                              ),
-                            ));
-                          } else {
-                            messenger.showSnackBar(const SnackBar(
-                                content: Text(
-                                    'Reservation failed. Please try again.')));
-                          }
-                        } catch (e) {
-                          messenger.showSnackBar(
-                              SnackBar(content: Text('Error: $e')));
-                        } finally {
-                          setModalState(() => isSaving = false);
-                        }
-                      },
+                                      'Reservation failed. Please try again.')));
+                            }
+                         } catch (e) {
+                           messenger.showSnackBar(
+                               SnackBar(content: Text('Error: $e')));
+                         } finally {
+                           setModalState(() => isSaving = false);
+                         }
+                       },
                       child: isSaving
-                          ? const CircularProgressIndicator(
-                          color: Colors.white)
+                          ? const CircularProgressIndicator(color: Colors.white)
                           : const Text('Pay & Reserve'),
                     ),
                   ),
@@ -671,55 +755,38 @@ class _ReservationScreenState extends ConsumerState<ReservationScreen> {
             ),
           );
         });
-      }),
-    );
-  }
+      }), // End of Consumer
+    ); // End of showModalBottomSheet
+  } // End of _showCreateReservationForm
 
-  // ── Build ────────────────────────────────────────────────────────────────────
+  // ── Build ─────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(reservationProvider);
     final stationsAsync = ref.watch(stationsProvider);
-
     final now = DateTime.now();
-
-    bool isTimerExpired(r) =>
-        r.status == 'to pay' &&
-            r.createdAt != null &&
-            now.isAfter(r.createdAt!.toLocal().add(const Duration(minutes: 10)));
-
-    final activeRes = state.reservations
-        .where((r) =>
-    (r.status == 'active' ||
-        r.status == 'paid' ||
-        r.status == 'to pay') &&
-        !isTimerExpired(r))
+    final filteredRes = _filteredReservations(state.reservations)
+        .where((res) {
+          if (res.status == 'to pay' && res.createdAt != null) {
+            final expiry = res.createdAt!.toLocal().add(const Duration(minutes: 10));
+            return now.isBefore(expiry);
+          }
+          return true;
+        })
         .toList();
-    final pastRes = state.reservations
-        .where((r) =>
-    r.status == 'cancelled' ||
-        r.status == 'completed' ||
-        isTimerExpired(r))
-        .toList();
-
     ref.listen<Map<String, String>?>(pendingBookingStationProvider,
             (prev, next) {
           if (next != null) {
-            if (activeRes.length >= 4) {
-              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                  content: Text('Maximum 4 active reservations allowed.')));
-            } else {
-              _showCreateReservationForm(
-                context,
-                slotId: next['slotId']!,
-                stationName: next['stationName']!,
-                stationAddress: next['stationAddress'] ?? '',
-                connectorType: next['connectorType'] ?? '',
-                connectorPrice: next['connectorPrice'] ?? '',
-                connectorStatus: next['connectorStatus'] ?? '',
-                slotCode: next['slotCode'] ?? '',
-              );
-            }
+            _showCreateReservationForm(
+              context,
+              slotId: next['slotId']!,
+              stationName: next['stationName']!,
+              stationAddress: next['stationAddress'] ?? '',
+              connectorType: next['connectorType'] ?? '',
+              connectorPrice: next['connectorPrice'] ?? '',
+              connectorStatus: next['connectorStatus'] ?? '',
+              slotCode: next['slotCode'] ?? '',
+            );
             ref.read(pendingBookingStationProvider.notifier).state = null;
           }
         });
@@ -740,23 +807,45 @@ class _ReservationScreenState extends ConsumerState<ReservationScreen> {
                   ?.copyWith(fontWeight: FontWeight.bold),
             ),
           ),
+          const SizedBox(height: 8),
+          Center(
+            child: SizedBox(
+              height: 36,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                shrinkWrap: true,
+                itemCount: _tabLabels.length,
+                separatorBuilder: (_, __) => const SizedBox(width: 8),
+                itemBuilder: (context, idx) => ChoiceChip(
+                  label: Text(_tabLabels[idx]),
+                  selected: _selectedTabIndex == idx,
+                  onSelected: (selected) {
+                    if (selected) setState(() => _selectedTabIndex = idx);
+                  },
+                ),
+              ),
+            ),
+          ),
           const SizedBox(height: 16),
-          if (activeRes.isEmpty)
+          if (filteredRes.isEmpty)
             const Center(
               child: Padding(
                   padding: EdgeInsets.all(40),
-                  child: Text('No active reservations.')),
+                  child: Text('No reservations found.')),
             )
           else
-            ...activeRes.map((res) {
-              final isToPay = res.status == 'to pay';
-              final isPaid =
-                  res.status == 'paid' || res.status == 'active';
-              final expiry = (res.createdAt ?? res.startTime)
-                  ?.toLocal()
-                  .add(const Duration(minutes: 10));
-
-              // Lookup station + slot
+            ...filteredRes.map((res) {
+               final isToPay = res.status == 'to pay';
+               final isPaid = res.status == 'paid' || res.status == 'active';
+               // Determine if QR code should be shown
+               bool showQrCode = false;
+               if (isPaid) {
+                 final endedStatuses = {'cancelled', 'refund', 'completed', 'expired'};
+                 final status = res.status?.toLowerCase() ?? '';
+                 final isEnded = endedStatuses.contains(status) ||
+                   (res.endTime != null && (res.endTime!.isUtc ? res.endTime!.toLocal() : res.endTime!).isBefore(DateTime.now()));
+                 showQrCode = !isEnded;
+               }
               StationModel? station;
               SlotModel? slot;
               final stations = stationsAsync.maybeWhen(
@@ -772,6 +861,51 @@ class _ReservationScreenState extends ConsumerState<ReservationScreen> {
                 }
               }
 
+              String countdownText = '';
+              Color countdownColor = Colors.orange;
+              if (isToPay && res.createdAt != null) {
+                  final expiry = res.createdAt!.isUtc
+                      ? res.createdAt!.toLocal().add(const Duration(minutes: 10))
+                      : res.createdAt!.add(const Duration(minutes: 10));
+                  final diff = expiry.difference(DateTime.now());
+                  if (diff.isNegative) {
+                    countdownText = 'Expired';
+                    countdownColor = Colors.red;
+                  } else {
+                    final minutes = diff.inMinutes;
+                    final seconds = diff.inSeconds.remainder(60);
+                    countdownText = 'Time left to pay: '
+                        '${minutes}m ${seconds.toString().padLeft(2, '0')}s';
+                    countdownColor = minutes < 1 ? Colors.red : Colors.orange;
+                  }
+                } else if (res.endTime != null) {
+                                                  // Debug output for diagnosis
+                                                  debugPrint('DEBUG: res.endTime: \\${res.endTime}');
+                                                  debugPrint('DEBUG: res.endTime!.isUtc: \\${res.endTime!.isUtc}');
+                                                  debugPrint('DEBUG: res.endTime!.toIso8601String(): \\${res.endTime!.toIso8601String()}');
+                                                  debugPrint('DEBUG: DateTime.now(): \\${DateTime.now()}');
+                                                  debugPrint('DEBUG: DateTime.now().toIso8601String(): \\${DateTime.now().toIso8601String()}');
+                  final endTime = res.endTime;
+                  final localEndTime = endTime!.isUtc ? endTime.toLocal() : endTime;
+                  final diff = localEndTime.difference(DateTime.now());
+                  if (diff.isNegative) {
+                    countdownText = 'Session ended';
+                    countdownColor = Colors.red;
+                  } else {
+                    final hours = diff.inHours;
+                    final minutes = diff.inMinutes.remainder(60);
+                    final seconds = diff.inSeconds.remainder(60);
+                    if (hours > 0) {
+                      countdownText =
+                          'Time left: ${hours}h ${minutes.toString().padLeft(2, '0')}m';
+                    } else {
+                      countdownText =
+                          'Time left: ${minutes}m ${seconds.toString().padLeft(2, '0')}s';
+                    }
+                    countdownColor = diff.inMinutes < 15 ? Colors.red : Colors.orange;
+                  }
+                }
+
               return Card(
                 margin: const EdgeInsets.only(bottom: 12),
                 child: Padding(
@@ -779,10 +913,8 @@ class _ReservationScreenState extends ConsumerState<ReservationScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Header row
                       Row(
-                        mainAxisAlignment:
-                        MainAxisAlignment.spaceBetween,
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text(
                               'Booking #${res.id.substring(0, 8)}',
@@ -793,10 +925,8 @@ class _ReservationScreenState extends ConsumerState<ReservationScreen> {
                                 horizontal: 10, vertical: 4),
                             decoration: BoxDecoration(
                               color: isToPay
-                                  ? Colors.orange
-                                  .withValues(alpha: 0.1)
-                                  : Colors.green
-                                  .withValues(alpha: 0.1),
+                                  ? Colors.orange.withValues(alpha: 0.1)
+                                  : Colors.green.withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(20),
                             ),
                             child: Text(
@@ -813,8 +943,6 @@ class _ReservationScreenState extends ConsumerState<ReservationScreen> {
                         ],
                       ),
                       const SizedBox(height: 8),
-
-                      // Station
                       if (station != null)
                         Text(station.name ?? '',
                             style: const TextStyle(
@@ -823,16 +951,12 @@ class _ReservationScreenState extends ConsumerState<ReservationScreen> {
                       else
                         const Text('Station not found',
                             style: TextStyle(color: Colors.red)),
-
-                      // Slot info
                       if (slot != null)
                         Text(
                           '${slot.slotCode ?? ''} · ${slot.connectorType ?? ''}',
                           style: const TextStyle(
                               color: Colors.grey, fontSize: 13),
                         ),
-
-                      // Time
                       if (res.startTime != null) ...[
                         const SizedBox(height: 4),
                         Text(
@@ -842,14 +966,10 @@ class _ReservationScreenState extends ConsumerState<ReservationScreen> {
                           style: const TextStyle(fontSize: 13),
                         ),
                       ],
-
-                      // Address
                       if (station?.address != null)
                         Text(station!.address!,
                             style: const TextStyle(
                                 color: Colors.grey, fontSize: 12)),
-
-                      // Battery
                       if (res.currentBattery != null) ...[
                         const SizedBox(height: 4),
                         Row(children: [
@@ -862,68 +982,130 @@ class _ReservationScreenState extends ConsumerState<ReservationScreen> {
                                   fontSize: 12, color: Colors.blue)),
                         ]),
                       ],
-
-                      // Expiry countdown
-                      if (expiry != null) ...[
-                        const SizedBox(height: 8),
-                        Row(children: [
-                          const Icon(Icons.timer,
-                              size: 14, color: Colors.red),
-                          const SizedBox(width: 4),
-                          Text(
-                            expiry.isAfter(DateTime.now())
-                                ? 'Time left: '
-                                '${expiry.difference(DateTime.now()).inMinutes.remainder(60).toString().padLeft(2, '0')}:'
-                                '${(expiry.difference(DateTime.now()).inSeconds % 60).toString().padLeft(2, '0')}'
-                                : 'Expired',
-                            style: const TextStyle(
-                                color: Colors.red,
+                         if (res.endTime != null && res.status != 'cancelled' && res.status != 'refund') ...[
+                          const SizedBox(height: 8),
+                          Row(children: [
+                            Icon(Icons.timer,
+                                size: 14, color: countdownColor),
+                            const SizedBox(width: 4),
+                            Text(
+                              countdownText,
+                              style: TextStyle(
+                                color: countdownColor,
                                 fontWeight: FontWeight.bold,
-                                fontSize: 13),
-                          ),
-                        ]),
-                      ],
-
+                                fontSize: 13,
+                              ),
+                            ),
+                          ]),
+                        ],
                       const SizedBox(height: 12),
-
-                      // Action buttons
                       Row(
                         mainAxisAlignment: MainAxisAlignment.end,
                         children: [
                           if (isPaid) ...[
-                            OutlinedButton.icon(
-                              icon: const Icon(Icons.qr_code,
-                                  size: 18),
-                              label: const Text('QR Code'),
-                              onPressed: () =>
-                                  _showQRDialog(context, res),
+                            if (showQrCode)
+                              ...[
+                                OutlinedButton.icon(
+                                  icon: const Icon(Icons.qr_code, size: 18),
+                                  label: const Text('QR Code'),
+                                  onPressed: () => _showQRDialog(context, res),
+                                ),
+                                const SizedBox(width: 8),
+                              ],
+                            ElevatedButton(
+                              onPressed: () => _showDetailsSheet(context, res),
+                              child: const Text('View Details'),
                             ),
                             const SizedBox(width: 8),
-                            ElevatedButton(
-                              onPressed: () =>
-                                  _showDetailsSheet(context, res),
-                              child: const Text('View Details'),
+                            PopupMenuButton<String>(
+                              icon: const Icon(Icons.more_vert),
+                              onSelected: (value) async {
+                                if (value == 'refund') {
+                                  await _showRefundDialog(context, res.id);
+                                }
+                              },
+                              itemBuilder: (context) => [
+                                const PopupMenuItem<String>(
+                                  value: 'refund',
+                                  child: Text('Refund'),
+                                ),
+                              ],
                             ),
                           ],
                           if (isToPay) ...[
-                            ElevatedButton(
-                              onPressed: () => Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                      builder: (_) => PaymentScreen(
-                                          reservation: res,
-                                          amount: 1000))),
-                              style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.green,
-                                  foregroundColor: Colors.white),
-                              child: const Text('Pay Now'),
-                            ),
-                            const SizedBox(width: 8),
-                            IconButton(
-                              icon: const Icon(Icons.cancel,
-                                  color: Colors.red),
-                              onPressed: () =>
-                                  _showCancelDialog(context, res.id),
+                            Builder(
+                              builder: (context) {
+                                double calculatedFee = 10.0;
+                                if (slot != null &&
+                                    station != null &&
+                                    res.currentBattery != null) {
+                                  final vehicles =
+                                  ref.read(vehicleProvider).maybeWhen(
+                                    data: (v) => v,
+                                    orElse: () => [],
+                                  );
+                                  VehicleModel? vehicle;
+                                  if (vehicles.isNotEmpty) {
+                                    try {
+                                      vehicle = vehicles.firstWhere(
+                                            (v) => v.id == res.vehicleId,
+                                        orElse: () => vehicles.first,
+                                      );
+                                    } catch (_) {
+                                      vehicle = vehicles.first;
+                                    }
+                                  }
+                                  final batteryCapacity =
+                                      vehicle?.batteryCapacityKwh ?? 40;
+                                  final currentBattery =
+                                      res.currentBattery ?? 1;
+                                  const targetBattery = 100;
+                                  final pricePerKwh =
+                                      slot.pricePerKwh ?? 0.0;
+                                  final kwhToCharge = ((targetBattery -
+                                      currentBattery) *
+                                      batteryCapacity /
+                                      100)
+                                      .clamp(0.0,
+                                      batteryCapacity.toDouble());
+                                  calculatedFee =
+                                      pricePerKwh * kwhToCharge;
+                                  if (calculatedFee.isNaN ||
+                                      calculatedFee.isInfinite ||
+                                      calculatedFee < 0.1) {
+                                    calculatedFee = 10.0;
+                                  }
+                                }
+                                return Row(
+                                  children: [
+                                    ElevatedButton(
+                                      onPressed: () => Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (_) => PaymentScreen(
+                                            reservation: res,
+                                            amount: (calculatedFee * 100)
+                                                .round(),
+                                          ),
+                                        ),
+                                      ),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: Colors.green,
+                                        foregroundColor: Colors.white,
+                                      ),
+                                      child: Text(
+                                          'Pay Now (RM${calculatedFee.toStringAsFixed(2)})'),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    IconButton(
+                                      icon: const Icon(Icons.cancel,
+                                          color: Colors.red),
+                                      onPressed: () => _showCancelDialog(
+                                          context, res.id),
+                                    ),
+                                  ],
+                                );
+                              },
                             ),
                           ],
                         ],
@@ -933,47 +1115,6 @@ class _ReservationScreenState extends ConsumerState<ReservationScreen> {
                 ),
               );
             }),
-
-          // Past reservations
-          if (pastRes.isNotEmpty) ...[
-            const Divider(height: 32),
-            Center(
-              child: TextButton.icon(
-                icon: Icon(_showPastReservations
-                    ? Icons.expand_less
-                    : Icons.history),
-                label: Text(_showPastReservations
-                    ? 'Hide History'
-                    : 'View Previous Reservations'),
-                onPressed: () => setState(() =>
-                _showPastReservations = !_showPastReservations),
-              ),
-            ),
-            if (_showPastReservations)
-              ...pastRes.map((res) {
-                final isExpiredTimer = res.status == 'to pay' &&
-                    res.createdAt != null &&
-                    now.isAfter(res.createdAt!
-                        .toLocal()
-                        .add(const Duration(minutes: 10)));
-                final displayStatus = isExpiredTimer
-                    ? 'Expired (unpaid)'
-                    : res.status ?? '';
-                return Card(
-                  color: Colors.grey[50],
-                  margin: const EdgeInsets.only(bottom: 8),
-                  child: ListTile(
-                    title: Text(
-                        'Booking #${res.id.substring(0, 8)}',
-                        style:
-                        const TextStyle(color: Colors.grey)),
-                    subtitle: Text('Status: $displayStatus',
-                        style: const TextStyle(
-                            color: Colors.redAccent)),
-                  ),
-                );
-              }),
-          ],
         ],
       ),
     );
@@ -1009,7 +1150,7 @@ class _InfoChip extends StatelessWidget {
   }
 }
 
-// ── Reservation Details Dialog ────────────────────────────────────────────────
+// ── Reservation Details Sheet ─────────────────────────────────────────────────
 class ReservationDetailsSheet extends ConsumerWidget {
   final ReservationModel reservation;
   const ReservationDetailsSheet({super.key, required this.reservation});
@@ -1078,14 +1219,12 @@ class ReservationDetailsSheet extends ConsumerWidget {
                 const SizedBox(height: 8),
                 const Center(
                   child: Text('Scan QR to track charging',
-                      style:
-                      TextStyle(color: Colors.grey, fontSize: 12)),
+                      style: TextStyle(color: Colors.grey, fontSize: 12)),
                 ),
                 const SizedBox(height: 16),
                 if (station.name != null) ...[
                   Row(children: [
-                    const Icon(Icons.ev_station,
-                        size: 20, color: Colors.grey),
+                    const Icon(Icons.ev_station, size: 20, color: Colors.grey),
                     const SizedBox(width: 8),
                     Expanded(
                         child: Text(station.name!,
@@ -1117,8 +1256,7 @@ class ReservationDetailsSheet extends ConsumerWidget {
                   Row(children: [
                     const Icon(Icons.bolt, size: 20, color: Colors.grey),
                     const SizedBox(width: 8),
-                    Text(
-                        'RM${slot!.pricePerKwh!.toStringAsFixed(2)} per kWh'),
+                    Text('RM${slot!.pricePerKwh!.toStringAsFixed(2)} per kWh'),
                   ]),
                   const SizedBox(height: 8),
                 ],
@@ -1127,14 +1265,11 @@ class ReservationDetailsSheet extends ConsumerWidget {
                     const Icon(Icons.battery_charging_full,
                         size: 20, color: Colors.blue),
                     const SizedBox(width: 8),
-                    Text(
-                        'Start battery: ${reservation.currentBattery}%'),
+                    Text('Start battery: ${reservation.currentBattery}%'),
                   ]),
                   const SizedBox(height: 8),
                 ],
                 const Divider(),
-
-                // --- Booking Price, Car Plate, Car Name ---
                 FutureBuilder<List<VehicleModel>>(
                   future: SupabaseService().getVehicles(),
                   builder: (context, snapshot) {
@@ -1193,8 +1328,7 @@ class ReservationDetailsSheet extends ConsumerWidget {
                     label: const Text('Show on Map'),
                     onPressed: () {
                       Navigator.pop(context);
-                      context.go(
-                          '/map?highlightStationId=${station?.id}');
+                      context.go('/map?highlightStationId=${station?.id}');
                     },
                   ),
                 ),

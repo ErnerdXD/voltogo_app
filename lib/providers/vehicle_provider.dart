@@ -51,10 +51,25 @@ class VehicleNotifier extends StateNotifier<AsyncValue<List<VehicleModel>>> {
 
   Future<void> deleteVehicle(String vehicleId) async {
     try {
+      final isReferenced = await _service.isVehicleReferencedInReservation(vehicleId);
+      if (isReferenced) {
+        // Don't set error state for business logic error, just throw
+        throw Exception('referenced by existing reservations');
+      }
       await _service.deleteVehicle(vehicleId);
       await fetchVehicles();
     } catch (e, st) {
-      state = AsyncValue.error(e, st);
+      // Only set error state for unexpected errors
+      if (!e.toString().contains('referenced by existing reservations')) {
+        state = AsyncValue.error(e, st);
+      }
+      rethrow;
+    }
+  }
+
+  void clearError() {
+    if (state.hasError) {
+      state = AsyncValue.data(state.value ?? []);
     }
   }
 }

@@ -445,7 +445,8 @@ class SupabaseService {
     required String vehicleId,
     required DateTime startTime,
     required DateTime endTime,
-    required int currentBattery, // Add this parameter
+    required int currentBattery,
+    required int targetBattery,
   }) async {
     final user = currentUser;
     if (user == null) throw Exception('No user logged in');
@@ -464,7 +465,8 @@ class SupabaseService {
         'start_time': startTime.toIso8601String(),
         'end_time': endTime.toIso8601String(),
         'status': 'to pay',
-        'current_battery': currentBattery, // Store battery
+        'current_battery': currentBattery,
+        'target_battery': targetBattery,
       }).select();
       if ((insertResponse as List).isEmpty) {
         return null;
@@ -602,5 +604,25 @@ class SupabaseService {
       return [];
     }
   }
-}
 
+  /// Checks if a vehicle is referenced by any reservation (active or not cancelled)
+  Future<bool> isVehicleReferencedInReservation(String vehicleId) async {
+    final response = await _client
+        .from('reservations')
+        .select('id')
+        .eq('vehicle_id', vehicleId)
+        .not('status', 'in', ['completed', 'cancelled'])
+        .limit(1);
+    return (response as List).isNotEmpty;
+  }
+
+  /// Set slot status to 'occupied' (after reservation)
+  Future<void> occupySlot(String slotId) async {
+    await _client.from('slots').update({'status': 'occupied'}).eq('id', slotId);
+  }
+
+  /// Set slot status to 'available' (after session end)
+  Future<void> releaseSlot(String slotId) async {
+    await _client.from('slots').update({'status': 'available'}).eq('id', slotId);
+  }
+}

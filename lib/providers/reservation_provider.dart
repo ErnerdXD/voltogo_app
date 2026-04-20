@@ -38,8 +38,40 @@ class ReservationNotifier extends StateNotifier<ReservationState> {
     try {
       final reservations = await _service.getUserReservations();
       state = state.copyWith(reservations: reservations, isLoading: false);
+      await _expireOldReservations();
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
+    }
+  }
+
+  Future<void> _expireOldReservations() async {
+    final now = DateTime.now();
+    final List<ReservationModel> toExpire = [];
+    for (final r in state.reservations) {
+      if ((r.status == 'active' || r.status == 'to pay') &&
+          r.endTime != null &&
+          r.endTime!.isBefore(now)) {
+        toExpire.add(r);
+      }
+    }
+    for (final res in toExpire) {
+      try {
+        await _service.updateReservationStatus(res.id, 'expired');
+        // Decrement station availability on session end
+        if (res.slotId != null) {
+          final slot = await _service.getSlotById(res.slotId!);
+          if (slot != null) {
+            await _service.decrementStationAvailability(slot.stationsId);
+            // Mark slot as available again
+            await _service.releaseSlot(slot.id);
+          }
+        }
+      } catch (e) {
+        print('[ReservationNotifier] Error expiring reservation ${res.id}: $e');
+      }
+    }
+    if (toExpire.isNotEmpty) {
+      await fetchReservations();
     }
   }
 
@@ -48,7 +80,8 @@ class ReservationNotifier extends StateNotifier<ReservationState> {
     required String vehicleId,
     required DateTime startTime,
     required DateTime endTime,
-    required int? currentBattery, // Accept nullable, but pass non-nullable
+    required int? currentBattery,
+    required int targetBattery,
   }) async {
     state = state.copyWith(isLoading: true, error: null);
     try {
@@ -60,18 +93,19 @@ class ReservationNotifier extends StateNotifier<ReservationState> {
         vehicleId: vehicleId,
         startTime: startTime,
         endTime: endTime,
-        currentBattery: currentBattery, // Now non-nullable
+        currentBattery: currentBattery,
+        targetBattery: targetBattery,
       );
-      // Decrement station availability after successful reservation
       if (reservation != null && reservation.slotId != null) {
         try {
           final slot = await _service.getSlotById(reservation.slotId!);
           if (slot != null) {
             await _service.decrementStationAvailability(slot.stationsId);
+            // Mark slot as occupied
+            await _service.occupySlot(slot.id);
           }
         } catch (e) {
-          // Log error but do not block reservation creation
-          print('[ReservationNotifier] Error decrementing station availability: $e');
+          print('[ReservationNotifier] Error decrementing station availability or occupying slot: $e');
         }
       }
       await fetchReservations();
@@ -107,6 +141,20 @@ class ReservationNotifier extends StateNotifier<ReservationState> {
       state = state.copyWith(isLoading: false, error: e.toString());
     }
   }
+
+  List<ReservationModel> get activeReservations => state.reservations
+      .where((r) => r.status == 'to pay' || r.status == 'active')
+      .toList();
+
+  List<ReservationModel> get expiredReservations => state.reservations
+      .where((r) => r.status == 'expired')
+      .toList();
+
+  List<ReservationModel> get previousReservations => state.reservations
+      .where((r) => r.status == 'completed' || r.status == 'cancelled')
+      .toList();
+
+  int get activeReservationCount => activeReservations.length;
 }
 
 final reservationProvider =

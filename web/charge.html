@@ -80,7 +80,7 @@
       try {
         // Fetch reservation + slot + station
         const resResp = await fetch(
-          `${SUPABASE_URL}/rest/v1/reservations?id=eq.${resId}&select=id,status,start_time,end_time,current_battery,vehicle_id,slots(slot_code,connector_type,price_per_kwh,stations(name,address))`,
+Onc          `${SUPABASE_URL}/rest/v1/reservations?id=eq.${resId}&select=id,status,start_time,end_time,current_battery,target_battery,final_battery,vehicle_id,slots(slot_code,connector_type,price_per_kwh,stations(name,address))`,
           { headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` } }
         );
         const resData = await resResp.json();
@@ -128,11 +128,22 @@
       const slot      = res.slots ?? {};
       const station   = slot.stations ?? {};
       const startBat  = res.current_battery ?? 30;
+      const targetBat = res.target_battery ?? 100;
+      const finalBat  = res.final_battery ?? null;
       const capacity  = vehicle?.battery_capacity_kwh ?? 40;
       const price     = slot.price_per_kwh ?? 0;
       const color     = statusColor(res.status);
+      const startTime = res.start_time ? new Date(res.start_time) : null;
+      const endTime = res.end_time ? new Date(res.end_time) : null;
 
       const root = document.getElementById('root');
+      // Calculate price paid (from payment or estimate)
+      let pricePaid = payment?.amount;
+      if (!pricePaid && startBat != null && targetBat != null && capacity && price) {
+        const kwh = ((targetBat - startBat) / 100) * capacity;
+        pricePaid = (kwh * price).toFixed(2);
+      }
+
       root.innerHTML = `
         <!-- Station card -->
         <div class="card">
@@ -166,10 +177,12 @@
           <hr class="divider"/>
 
           <div class="info-row"><span class="info-key">Start battery</span><span class="info-val">${startBat}%</span></div>
+          <div class="info-row"><span class="info-key">Target battery</span><span class="info-val">${targetBat}%</span></div>
+          ${finalBat !== null ? `<div class="info-row"><span class="info-key">Final battery</span><span class="info-val">${finalBat}%</span></div>` : ''}
           <div class="info-row"><span class="info-key">Capacity</span><span class="info-val">${capacity} kWh</span></div>
           <div class="info-row"><span class="info-key">Est. added energy</span><span class="info-val" id="kwh">-- kWh</span></div>
           <div class="info-row"><span class="info-key">Est. cost so far</span><span class="info-val" id="cost">RM --</span></div>
-          ${payment?.amount ? `<div class="info-row"><span class="info-key">Booking paid</span><span class="info-val">RM${Number(payment.amount).toFixed(2)}</span></div>` : ''}
+          <div class="info-row"><span class="info-key">Booking paid</span><span class="info-val" id="paid">RM${pricePaid ? Number(pricePaid).toFixed(2) : '--'}</span></div>
 
           <hr class="divider"/>
 
@@ -196,11 +209,13 @@
       const pctEl = document.getElementById('pct');
       const kwhEl = document.getElementById('kwh');
       const costEl = document.getElementById('cost');
+      const paidEl = document.getElementById('paid');
       let battery = startBat;
+      const maxBattery = finalBat !== null ? finalBat : targetBat;
 
       function setRing(p) {
         ring.style.strokeDasharray  = CIRC;
-        ring.style.strokeDashoffset = CIRC * (1 - p / 100);
+        ring.style.strokeDashoffset = CIRC * (1 - (p - startBat) / (maxBattery - startBat));
         ring.style.stroke = p < 20 ? '#f44336' : p < 50 ? '#ff9800' : p >= 80 ? '#4caf50' : '#4fc3f7';
       }
 
@@ -212,12 +227,63 @@
         setRing(battery);
       }
 
+      // Time logic
+      const now = new Date();
+      let chargingState = '';
+      if (!startTime || !endTime) {
+        chargingState = 'invalid';
+      } else if (now < startTime) {
+        chargingState = 'not_started';
+      } else if (now > endTime) {
+        chargingState = 'ended';
+      } else if (startBat >= targetBat) {
+        chargingState = 'already_full';
+      } else {
+        chargingState = 'charging';
+      }
+
+      function setChargingLabel(msg) {
+        const label = document.querySelector('.charging-label');
+        if (label) label.innerHTML = msg;
+      }
+
       update();
-      const iv = setInterval(() => {
-        if (battery >= 100) { clearInterval(iv); return; }
-        battery++;
+      if (chargingState === 'invalid') {
+        setChargingLabel('<span style="color:#f44336">Invalid reservation time</span>');
+      } else if (chargingState === 'not_started') {
+        setChargingLabel('<span style="color:#ff9800">Charging not started yet</span>');
+      } else if (chargingState === 'ended') {
+        battery = finalBat !== null ? finalBat : targetBat;
         update();
-      }, 1000);
+        setChargingLabel('<span style="color:#f44336">Session ended</span>');
+      } else if (chargingState === 'already_full') {
+        battery = targetBat;
+        update();
+        setChargingLabel('<span style="color:#4caf50">Already at target</span>');
+      } else {
+        // Animate battery from startBat to targetBat over the session duration
+        const totalMs = endTime - startTime;
+        const stepMs = totalMs / (targetBat - startBat);
+        let interval = null;
+        function animate() {
+          const now = new Date();
+          if (now > endTime || battery >= targetBat) {
+            battery = Math.min(targetBat, battery);
+            update();
+            setChargingLabel('<span style="color:#4caf50">Charging complete</span>');
+            clearInterval(interval);
+            return;
+          }
+          // Calculate battery based on time elapsed
+          const elapsed = now - startTime;
+          const pct = startBat + Math.floor(((targetBat - startBat) * elapsed) / totalMs);
+          battery = Math.min(targetBat, pct);
+          update();
+          setChargingLabel('<div class="dot"></div> Charging in progress');
+        }
+        animate();
+        interval = setInterval(animate, 1000);
+      }
     }
 
     function showError(msg) {

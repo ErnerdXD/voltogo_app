@@ -11,6 +11,8 @@ class ReservationModel {
     this.createdAt,
     this.currentBattery,
     this.cancellationReason,
+    this.targetBattery,
+    this.finalBattery,
   });
 
   final String id;
@@ -24,6 +26,8 @@ class ReservationModel {
   final DateTime? createdAt;
   final int? currentBattery;
   final String? cancellationReason;
+  final int? targetBattery;
+  final int? finalBattery;
 
   factory ReservationModel.fromJson(Map<String, dynamic> json) {
     return ReservationModel(
@@ -38,6 +42,8 @@ class ReservationModel {
       createdAt: _parseDateTime(json['created_at']),
       currentBattery: _parseInt(json['current_battery']),
       cancellationReason: json['cancellation_reason'] as String?,
+      targetBattery: _parseInt(json['target_battery']),
+      finalBattery: _parseInt(json['final_battery']),
     );
   }
 
@@ -54,6 +60,8 @@ class ReservationModel {
       'created_at': createdAt?.toIso8601String(),
       'current_battery': currentBattery,
       'cancellation_reason': cancellationReason,
+      'target_battery': targetBattery,
+      'final_battery': finalBattery,
     };
   }
 
@@ -69,6 +77,8 @@ class ReservationModel {
     DateTime? createdAt,
     int? currentBattery,
     String? cancellationReason,
+    int? targetBattery,
+    int? finalBattery,
   }) {
     return ReservationModel(
       id: id ?? this.id,
@@ -82,6 +92,8 @@ class ReservationModel {
       createdAt: createdAt ?? this.createdAt,
       currentBattery: currentBattery ?? this.currentBattery,
       cancellationReason: cancellationReason ?? this.cancellationReason,
+      targetBattery: targetBattery ?? this.targetBattery,
+      finalBattery: finalBattery ?? this.finalBattery,
     );
   }
 
