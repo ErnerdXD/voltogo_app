@@ -10,26 +10,50 @@ class VehiclesScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final vehiclesAsync = ref.watch(vehicleProvider);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
+      backgroundColor: isDark ? const Color(0xFF121212) : Colors.grey[50],
       appBar: AppBar(
-        title: const Text('My Vehicles'),
+        title: Text('My Garage', style: TextStyle(color: isDark ? Colors.white : Colors.black87, fontWeight: FontWeight.bold)),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        iconTheme: IconThemeData(color: isDark ? Colors.white : Colors.black87),
       ),
       body: vehiclesAsync.when(
         data: (vehicles) => vehicles.isEmpty
             ? Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(Icons.directions_car_outlined, size: 64, color: Colors.grey),
-              const SizedBox(height: 16),
-              const Text('No vehicles added yet.'),
-              const SizedBox(height: 24),
-              ElevatedButton(
-                onPressed: () => context.push('/profile/vehicles/add'),
-                child: const Text('Add Your First EV'),
-              ),
-            ],
+          child: Padding(
+            padding: const EdgeInsets.all(32.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(color: Colors.blue.withValues(alpha: 0.1), shape: BoxShape.circle),
+                  child: Icon(Icons.directions_car, size: 80, color: isDark ? Colors.blue[400] : Colors.blue[300]),
+                ),
+                const SizedBox(height: 24),
+                Text('Your Garage is Empty', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black87)),
+                const SizedBox(height: 8),
+                Text('Add your electric vehicle to ensure compatibility with charging stations.', textAlign: TextAlign.center, style: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey[600])),
+                const SizedBox(height: 32),
+                SizedBox(
+                  width: double.infinity,
+                  height: 50,
+                  child: ElevatedButton.icon(
+                    onPressed: () => context.push('/profile/vehicles/add'),
+                    icon: const Icon(Icons.add),
+                    label: const Text('Add Your First EV', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                    style: ElevatedButton.styleFrom(
+                        backgroundColor: isDark ? Colors.blue[600] : Colors.blue[700],
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         )
             : ListView.builder(
@@ -37,16 +61,11 @@ class VehiclesScreen extends ConsumerWidget {
           itemCount: vehicles.length,
           itemBuilder: (context, index) {
             final vehicle = vehicles[index];
-
-            // WRAP THE CARD IN INKWELL FOR NAVIGATION
             return Padding(
               padding: const EdgeInsets.only(bottom: 12.0),
               child: InkWell(
-                borderRadius: BorderRadius.circular(12),
-                onTap: () {
-                  // Navigate to edit screen and pass the vehicle object as 'extra'
-                  context.push('/profile/vehicles/edit', extra: vehicle);
-                },
+                borderRadius: BorderRadius.circular(16),
+                onTap: () => context.push('/profile/vehicles/edit', extra: vehicle),
                 child: VehicleCard(
                   vehicle: vehicle,
                   onDelete: () async {
@@ -54,15 +73,14 @@ class VehiclesScreen extends ConsumerWidget {
                       context: context,
                       builder: (context) => AlertDialog(
                         title: const Text('Delete Vehicle'),
-                        content: const Text('Are you sure you want to remove this vehicle?'),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        content: const Text('Are you sure you want to remove this vehicle from your garage?'),
                         actions: [
-                          TextButton(
-                            onPressed: () => Navigator.pop(context, false),
-                            child: const Text('Cancel'),
-                          ),
-                          TextButton(
-                            onPressed: () => Navigator.pop(context, true),
-                            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+                          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+                          ElevatedButton(
+                              style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
+                              onPressed: () => Navigator.pop(context, true),
+                              child: const Text('Delete')
                           ),
                         ],
                       ),
@@ -73,21 +91,14 @@ class VehiclesScreen extends ConsumerWidget {
                         await ref.read(vehicleProvider.notifier).deleteVehicle(vehicle.id);
                       } catch (e) {
                         final errorMsg = e.toString().contains('referenced by existing reservations')
-                            ? 'This vehicle cannot be deleted because it is referenced by one or more reservations.'
+                            ? 'This vehicle cannot be deleted because it is referenced by an active reservation.'
                             : 'Failed to delete vehicle: $e';
-                        showDialog(
-                          context: context,
-                          builder: (context) => AlertDialog(
-                            title: const Text('Delete Failed'),
-                            content: Text(errorMsg),
-                            actions: [
-                              TextButton(
-                                onPressed: () => Navigator.pop(context),
-                                child: const Text('OK'),
-                              ),
-                            ],
-                          ),
-                        );
+                        if (context.mounted) {
+                          showDialog(
+                            context: context,
+                            builder: (context) => AlertDialog(title: const Text('Cannot Delete'), content: Text(errorMsg), actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('OK'))]),
+                          );
+                        }
                       }
                     }
                   },
@@ -100,9 +111,12 @@ class VehiclesScreen extends ConsumerWidget {
         error: (err, stack) => Center(child: Text('Error: $err')),
       ),
       floatingActionButton: vehiclesAsync.value?.isNotEmpty == true
-          ? FloatingActionButton(
+          ? FloatingActionButton.extended(
         onPressed: () => context.push('/profile/vehicles/add'),
-        child: const Icon(Icons.add),
+        icon: const Icon(Icons.add),
+        label: const Text('Add EV'),
+        backgroundColor: isDark ? Colors.blue[600] : Colors.blue[700],
+        foregroundColor: Colors.white,
       )
           : null,
     );

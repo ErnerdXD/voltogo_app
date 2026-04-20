@@ -16,219 +16,186 @@ class ProfileScreen extends ConsumerWidget {
     final themeMode = ref.watch(themeProvider);
     final userAsync = ref.watch(userProvider);
 
+    // --- THE FIX: Detect Dark Mode ---
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
+      backgroundColor: isDark ? const Color(0xFF121212) : Colors.grey[50],
+      appBar: AppBar(
+        title: Text('My Profile', style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black87)),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        centerTitle: true,
+        iconTheme: IconThemeData(color: isDark ? Colors.white : Colors.black87),
+      ),
       body: profileAsync.when(
         data: (profile) => SingleChildScrollView(
           padding: const EdgeInsets.all(24.0),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              const SizedBox(height: 40),
-
-              Center(
-                child: Text(
-                  'Profile',
-                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.bold,
+              // --- HEADER CARD ---
+              Card(
+                elevation: isDark ? 0 : 4,
+                shadowColor: Colors.black12,
+                color: isDark ? Colors.grey[900] : Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                child: Padding(
+                  padding: const EdgeInsets.all(24.0),
+                  child: Column(
+                    children: [
+                      Stack(
+                        alignment: Alignment.bottomRight,
+                        children: [
+                          CircleAvatar(
+                            radius: 50,
+                            backgroundColor: isDark ? Colors.blue.withValues(alpha: 0.2) : Colors.blue[50],
+                            child: profile?.avatarUrl != null
+                                ? ClipOval(child: Image.network(profile!.avatarUrl!, fit: BoxFit.cover, width: 100, height: 100))
+                                : Icon(Icons.person, size: 50, color: isDark ? Colors.blue[400] : Colors.blue[300]),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        profile?.fullName?.isNotEmpty == true ? profile!.fullName! : 'Welcome, Driver',
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black87),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(authUser?.email ?? '', style: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey[600])),
+                      if (profile?.phone?.isNotEmpty == true) ...[
+                        const SizedBox(height: 4),
+                        Text(profile!.phone!, style: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey[600])),
+                      ],
+                    ],
                   ),
-                ),
-              ),
-
-              const SizedBox(height: 16),
-              // Avatar
-              Center(
-                child: CircleAvatar(
-                  radius: 60,
-                  backgroundColor: Theme.of(context).colorScheme.primary,
-                  child: profile?.avatarUrl != null
-                      ? ClipOval(
-                    child: Image.network(
-                      profile!.avatarUrl!,
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) =>
-                      const Icon(Icons.person, size: 60, color: Colors.white),
-                    ),
-                  )
-                      : const Icon(Icons.person, size: 60, color: Colors.white),
                 ),
               ),
               const SizedBox(height: 24),
 
-              // Profile Info
-              _buildInfoTile(
-                context,
-                'Full Name',
-                profile?.fullName?.isNotEmpty == true ? profile!.fullName! : 'Not Set',
-              ),
-              _buildInfoTile(context, 'Email', authUser?.email ?? 'Not Set'),
-              _buildInfoTile(
-                context,
-                'Phone',
-                profile?.phone?.isNotEmpty == true ? profile!.phone! : 'Not Set',
-              ),
-
-              const SizedBox(height: 32),
-
+              // --- ADMIN DASHBOARD BUTTON ---
               if (userAsync.value?.role == 'admin') ...[
                 SizedBox(
                   width: double.infinity,
+                  height: 56,
                   child: ElevatedButton.icon(
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.indigo, // Distinct admin color
+                      backgroundColor: isDark ? Colors.indigo[400] : Colors.indigo,
                       foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      elevation: 2,
                     ),
                     icon: const Icon(Icons.dashboard_customize),
-                    label: const Text('Return to Admin Dashboard', style: TextStyle(fontWeight: FontWeight.bold)),
+                    label: const Text('Admin Console', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                     onPressed: () => context.go('/admin'),
                   ),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 24),
               ],
 
-              // Edit Profile Button
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () => context.push('/profile/edit'),
-                  child: const Text('Edit Profile'),
+              // --- SETTINGS MENU ---
+              Card(
+                elevation: isDark ? 0 : 2,
+                shadowColor: Colors.black12,
+                color: isDark ? Colors.grey[900] : Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                child: Column(
+                  children: [
+                    _MenuTile(
+                      icon: Icons.edit_outlined,
+                      title: 'Edit Profile',
+                      isDark: isDark,
+                      onTap: () => context.push('/profile/edit'),
+                    ),
+                    Divider(height: 1, indent: 56, color: isDark ? Colors.grey[800] : Colors.grey[200]),
+                    _MenuTile(
+                      icon: Icons.directions_car_outlined,
+                      title: 'My Garage',
+                      isDark: isDark,
+                      onTap: () => context.push('/profile/vehicles'),
+                    ),
+                    Divider(height: 1, indent: 56, color: isDark ? Colors.grey[800] : Colors.grey[200]),
+                    _MenuTile(
+                      icon: themeMode == ThemeMode.dark ? Icons.dark_mode_outlined : Icons.light_mode_outlined,
+                      title: themeMode == ThemeMode.dark ? 'Light Mode' : 'Dark Mode',
+                      isDark: isDark,
+                      onTap: () => ref.read(themeProvider.notifier).state = themeMode == ThemeMode.dark ? ThemeMode.light : ThemeMode.dark,
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 24),
 
-              // My Vehicles Button
+              // --- LOGOUT BUTTON ---
               SizedBox(
                 width: double.infinity,
-                child: OutlinedButton(
-                  onPressed: () => context.push('/profile/vehicles'),
-                  child: const Text('My Vehicles'),
-                ),
-              ),
-
-              const SizedBox(height: 12),
-
-              // Theme Switch Button
-              SizedBox(
-                width: double.infinity,
+                height: 50,
                 child: OutlinedButton.icon(
-                  icon: Icon(themeMode == ThemeMode.dark ? Icons.dark_mode : Icons.light_mode),
-                  label: Text(themeMode == ThemeMode.dark ? 'Switch to Light Mode' : 'Switch to Dark Mode'),
-                  onPressed: () {
-                    ref.read(themeProvider.notifier).state =
-                    themeMode == ThemeMode.dark ? ThemeMode.light : ThemeMode.dark;
-                  },
-                ),
-              ),
-
-              const SizedBox(height: 12),
-
-              // Logout Button
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton(
                   onPressed: () async {
                     ref.invalidate(profileProvider);
                     ref.invalidate(userProvider);
                     ref.invalidate(authUserProvider);
-
                     await Supabase.instance.client.auth.signOut();
-
-                    if (context.mounted) {
-                      context.go('/login');
-                    }
+                    if (context.mounted) context.go('/login');
                   },
+                  icon: const Icon(Icons.logout),
+                  label: const Text('Log Out', style: TextStyle(fontWeight: FontWeight.bold)),
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.red,
-                    side: const BorderSide(color: Colors.red),
+                    foregroundColor: isDark ? Colors.red[400] : Colors.red,
+                    side: BorderSide(color: isDark ? Colors.red.withValues(alpha: 0.3) : Colors.red.withValues(alpha: 0.5)),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
-                  child: const Text('Logout'),
                 ),
               ),
 
-              const SizedBox(height: 90), // Increased padding above logo
+              const SizedBox(height: 40),
 
-              // Centralized Big Brand Logo Below Logout
-              Center(
-                child: SizedBox(
-                  width: 140,
-                  height: 140,
-                  child: ClipOval(
-                    child: Image.asset(
-                      'assets/branding/voltogo_icon.png',
-                      fit: BoxFit.contain,
+              // --- THE FIX: Rounded Logo Footer ---
+              Opacity(
+                opacity: isDark ? 0.8 : 0.5,
+                child: Column(
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(16), // Fixes the ugly square
+                      child: Image.asset('assets/branding/voltogo_icon.png', width: 60, height: 60, fit: BoxFit.cover),
                     ),
-                  ),
+                    const SizedBox(height: 12),
+                    Text('VoltoGo v1.0.0', style: TextStyle(fontWeight: FontWeight.w500, color: isDark ? Colors.grey[400] : Colors.grey[800])),
+                  ],
                 ),
               ),
-              const SizedBox(height: 12),
-              Center(
-                child: Text(
-                  'app v1.0.0',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: Colors.grey[600],
-                        fontWeight: FontWeight.w500,
-                        fontSize: 16,
-                      ),
-                ),
-              ),
+              const SizedBox(height: 24),
             ],
           ),
         ),
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (err, stack) => Center(
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(Icons.info_outline, size: 64, color: Colors.orange),
-                const SizedBox(height: 16),
-                Text(
-                  'Warning: $err',
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(color: Colors.orange),
-                ),
-                const SizedBox(height: 16),
-                ElevatedButton(
-                  onPressed: () {
-                    // ignore: unused_result
-                    ref.refresh(profileProvider);
-                  },
-                  child: const Text('Retry'),
-                ),
-                const SizedBox(height: 8),
-                OutlinedButton(
-                  onPressed: () async {
-                    await Supabase.instance.client.auth.signOut();
-                    if (context.mounted) {
-                      context.go('/login');
-                    }
-                  },
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.red,
-                    side: const BorderSide(color: Colors.red),
-                  ),
-                  child: const Text('Logout'),
-                ),
-              ],
-            ),
-          ),
-        ),
+        error: (err, stack) => Center(child: Text('Error: $err')),
       ),
     );
   }
+}
 
-  Widget _buildInfoTile(BuildContext context, String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(label, style: Theme.of(context).textTheme.labelSmall),
-          const SizedBox(height: 4),
-          Text(value, style: Theme.of(context).textTheme.bodyLarge),
-          const Divider(),
-        ],
+// Custom widget for sleek menu items
+class _MenuTile extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final bool isDark;
+  final VoidCallback onTap;
+
+  const _MenuTile({required this.icon, required this.title, required this.isDark, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      leading: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(color: Colors.blue.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
+        child: Icon(icon, color: isDark ? Colors.blue[400] : Colors.blue[700]),
       ),
+      title: Text(title, style: TextStyle(fontWeight: FontWeight.w600, color: isDark ? Colors.grey[200] : Colors.black87)),
+      trailing: Icon(Icons.chevron_right, color: isDark ? Colors.grey[600] : Colors.grey[400]),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      onTap: onTap,
     );
   }
 }

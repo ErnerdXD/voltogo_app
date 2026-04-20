@@ -29,7 +29,9 @@ final goRouter = GoRouter(
   initialLocation: '/',
   redirect: (context, state) async {
     final session = Supabase.instance.client.auth.currentSession;
-    final isLoggingIn = state.matchedLocation == '/login' || state.matchedLocation == '/register';
+    final isLoggingIn = state.matchedLocation == '/login' ||
+        state.matchedLocation == '/register' ||
+        state.matchedLocation == '/forgot-password';
     final isSplash = state.matchedLocation == '/';
 
     // If no session and not on auth/splash pages, go to login
