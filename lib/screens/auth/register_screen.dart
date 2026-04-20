@@ -133,7 +133,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       onPressed: isVerifying ? null : () async {
                         setDialogState(() => isVerifying = true);
                         try {
-                          // 1. Verify the OTP
+                          // Verify the OTP
                           final response = await Supabase.instance.client.auth
                               .verifyOTP(
                             email: _emailController.text.trim(),
@@ -144,7 +144,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           if (response.user == null) throw Exception(
                               'Verification failed');
 
-                          // 2. NOW they are authenticated! We can safely upload the image.
                           String? avatarUrl;
                           if (_avatarBytes != null) {
                             avatarUrl = await SupabaseService().uploadAvatar(
