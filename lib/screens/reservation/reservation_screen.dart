@@ -176,7 +176,7 @@ class _ReservationScreenState extends ConsumerState<ReservationScreen> {
   // ── QR dialog ────────────────────────────────────────────────────────────────
   void _showQRDialog(BuildContext context, ReservationModel res) {
     final qrUrl =
-        'https://ejeseyuqdubakwqnzjbz.supabase.co/functions/v1/charge?res_id=${res.id}';
+        'https://ernerdxd.github.io/voltogo_app/web/charge.html?res_id=${res.id}';
     Navigator.of(context).push(
       PageRouteBuilder(
         opaque: false,
