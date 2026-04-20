@@ -19,6 +19,8 @@ import 'package:voltogo_app/screens/reservation/reservation_screen.dart';
 import 'package:voltogo_app/screens/admin/admin_dashboard_screen.dart';
 import 'package:voltogo_app/screens/admin/manage_stations_screen.dart';
 import 'package:voltogo_app/screens/admin/manage_slots_screen.dart';
+import 'package:voltogo_app/screens/auth/forgot_password_screen.dart';
+
 
 final GlobalKey<NavigatorState> _rootNavigatorKey = GlobalKey<NavigatorState>();
 
@@ -79,6 +81,10 @@ final goRouter = GoRouter(
     GoRoute(
       path: '/register',
       builder: (context, state) => const RegisterScreen(),
+    ),
+    GoRoute(
+      path: '/forgot-password',
+      builder: (context, state) => const ForgotPasswordScreen(),
     ),
     GoRoute(
       path: '/admin',

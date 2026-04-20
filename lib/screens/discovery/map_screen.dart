@@ -8,6 +8,8 @@ import 'dart:math' as math;
 import 'dart:async';
 import 'package:flutter_compass/flutter_compass.dart';
 import 'package:voltogo_app/screens/discovery/station_detail_screen.dart';
+import 'package:voltogo_app/providers/station_provider.dart';
+
 
 class MapScreen extends ConsumerStatefulWidget {
   const MapScreen({super.key, required this.title});
@@ -59,6 +61,8 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     setState(() => _isLoading = true);
 
     try {
+      ref.read(stationsProvider.notifier).fetchStations();
+
       if (hasPermission) {
         final location = await _locationService.getCurrentLocation();
         if (location != null) {
@@ -71,9 +75,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
       await _loadNearbyStations();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
       }
     } finally {
       if (mounted) {
@@ -87,22 +89,23 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     setState(() => _isLoading = true);
 
     try {
-      // 1. Fetch data from OpenChargeMap
-      final stations = await _chargingService.getNearbyStations(
+      // 1. Fetch 3rd Party data from OpenChargeMap
+      final ocmStations = await _chargingService.getNearbyStations(
         latitude: _currentLocation.latitude,
         longitude: _currentLocation.longitude,
         radiusKm: _radiusKm,
       );
 
+      // 2. Fetch 1st Party Proprietary data from Supabase Riverpod
+      final supabaseStations = ref.read(stationsProvider).value ?? [];
+
       if (!mounted) return;
 
-      // 2. Map the API response into FlutterMap Markers
-      final markers = stations.map((station) {
+      // 3. Map OpenChargeMap Stations (Green Markers)
+      final ocmMarkers = ocmStations.map((station) {
         return Marker(
           point: LatLng(station.latitude, station.longitude),
-          width: 60,
-          height: 60,
-          rotate: true,
+          width: 60, height: 60, rotate: true,
           child: GestureDetector(
             onTap: () => _showStationDetails(station),
             child: Column(
@@ -112,28 +115,16 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                     color: Colors.green,
                     borderRadius: BorderRadius.circular(50),
                     border: Border.all(color: Colors.white, width: 2),
-                    boxShadow: [
-                      BoxShadow(color: Colors.black26, blurRadius: 4, offset: Offset(0, 2))
-                    ],
+                    boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 4, offset: Offset(0, 2))],
                   ),
                   padding: const EdgeInsets.all(4),
-                  child: const Icon(
-                    Icons.ev_station,
-                    color: Colors.white,
-                    size: 24,
-                  ),
+                  child: const Icon(Icons.ev_station, color: Colors.white, size: 24),
                 ),
                 if (station.availablePoints != null && station.availablePoints! > 0)
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: Colors.black87,
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Text(
-                      '${station.availablePoints}',
-                      style: const TextStyle(color: Colors.white, fontSize: 10),
-                    ),
+                    decoration: BoxDecoration(color: Colors.black87, borderRadius: BorderRadius.circular(4)),
+                    child: Text('${station.availablePoints}', style: const TextStyle(color: Colors.white, fontSize: 10)),
                   ),
               ],
             ),
@@ -141,19 +132,78 @@ class _MapScreenState extends ConsumerState<MapScreen> {
         );
       }).toList();
 
+      // 4. Map VoltoGo Proprietary Stations (Blue Bolt Markers)
+      final List<Marker> voltogoMarkers = [];
+      for (var station in supabaseStations) {
+        // Skip inactive stations or missing coordinates
+        if (station.status != 'active' || station.latitude == null || station.longitude == null) continue;
+
+        // Ensure it is within our search radius!
+        final distance = _locationService.calculateDistance(
+            _currentLocation,
+            LatLng(station.latitude!, station.longitude!)
+        );
+
+        if (distance <= _radiusKm) {
+          voltogoMarkers.add(
+              Marker(
+                point: LatLng(station.latitude!, station.longitude!),
+                width: 65, height: 65, rotate: true,
+                child: GestureDetector(
+                  onTap: () {
+                    // ADAPTER PATTERN: Convert Supabase model to OCM model for the UI
+                    final adapter = ChargingStation(
+                      id: station.externalId ?? station.id,
+                      name: station.name ?? 'VoltoGo Station',
+                      latitude: station.latitude!,
+                      longitude: station.longitude!,
+                      address: station.address,
+                      availablePoints: station.slots?.where((s) => s.status == 'available').length ?? 0,
+                    );
+                    _showStationDetails(adapter);
+                  },
+                  child: Column(
+                    children: [
+                      Container(
+                        decoration: BoxDecoration(
+                          color: Colors.blue, // Distinct Blue for proprietary network!
+                          borderRadius: BorderRadius.circular(50),
+                          border: Border.all(color: Colors.white, width: 2),
+                          boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 4, offset: Offset(0, 2))],
+                        ),
+                        padding: const EdgeInsets.all(4),
+                        child: const Icon(Icons.bolt, color: Colors.white, size: 28),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(color: Colors.blue[900], borderRadius: BorderRadius.circular(4)),
+                        child: Text(
+                            '${station.slots?.where((s) => s.status == 'available').length ?? 0}',
+                            style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              )
+          );
+        }
+      }
+
+      // 5. Combine and update map
       setState(() {
-        _stationMarkers = markers;
+        _stationMarkers = [...voltogoMarkers, ...ocmMarkers];
         _isLoading = false;
       });
 
-      debugPrint('[MapScreen] Successfully loaded ${markers.length} stations.');
+      debugPrint('[MapScreen] Loaded ${voltogoMarkers.length} VoltoGo stations & ${ocmMarkers.length} OCM stations.');
     } catch (e) {
       debugPrint('Error loading stations: $e');
       if (mounted) {
         setState(() => _isLoading = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Could not load stations. Try again later.'),
+            content: const Text('Could not load stations. Try again later.'),
             action: SnackBarAction(label: 'Retry', onPressed: _loadNearbyStations),
           ),
         );

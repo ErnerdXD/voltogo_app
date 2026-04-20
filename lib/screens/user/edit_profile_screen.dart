@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:supabase_flutter/supabase_flutter.dart'; // Added Supabase import
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:voltogo_app/providers/auth_provider.dart';
-import 'package:voltogo_app/providers/user_provider.dart'; // Added UserProvider import
+import 'package:voltogo_app/providers/user_provider.dart';
+import 'dart:typed_data';
+import 'package:image_picker/image_picker.dart';
+import 'package:voltogo_app/services/supabase_service.dart';
+import 'package:voltogo_app/utils/validators.dart';
 
 class EditProfileScreen extends ConsumerStatefulWidget {
   const EditProfileScreen({super.key});
@@ -16,6 +20,9 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _nameController;
   late TextEditingController _phoneController;
+  Uint8List? _newAvatarBytes;
+  String? _newAvatarExt;
+  String? _currentAvatarUrl;
 
   bool _isLoading = false;
   bool _isSaving = false; // Added this variable!
@@ -33,9 +40,109 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
         if (mounted && profile != null) {
           _nameController.text = profile.fullName ?? '';
           _phoneController.text = profile.phone ?? '';
+          _currentAvatarUrl = profile.avatarUrl;
         }
       });
     });
+  }
+
+  Future<void> _pickImage() async {
+    final ImagePicker picker = ImagePicker();
+    final XFile? image = await picker.pickImage(source: ImageSource.camera, maxWidth: 600);
+    if (image != null) {
+      final bytes = await image.readAsBytes();
+      setState(() {
+        _newAvatarBytes = bytes;
+        _newAvatarExt = image.path.split('.').last;
+      });
+    }
+  }
+
+  Future<void> _changePasswordDialog() async {
+    final pwdController = TextEditingController();
+    final confirmPwdController = TextEditingController(); // ADD THIS
+
+    await showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Change Password'),
+        // Change the content to a Column to hold two TextFields
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: pwdController,
+              obscureText: true,
+              decoration: const InputDecoration(labelText: 'New Password'),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: confirmPwdController,
+              obscureText: true,
+              decoration: const InputDecoration(labelText: 'Confirm Password'),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () async {
+              final newPassword = pwdController.text.trim();
+
+              // 1. Check if passwords match
+              if (newPassword != confirmPwdController.text.trim()) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Passwords do not match!'), backgroundColor: Colors.orange),
+                );
+                return; // Stop them from proceeding
+              }
+
+              // 2. Check Strong Password Requirements
+              if (!Validators.isStrongPassword(newPassword)) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text(Validators.passwordRequirements), backgroundColor: Colors.orange),
+                );
+                return;
+              }
+
+              try {
+                await Supabase.instance.client.auth.updateUser(
+                    UserAttributes(password: newPassword)
+                );
+
+                if (mounted) {
+                  Navigator.pop(ctx);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Password updated successfully!'), backgroundColor: Colors.green)
+                  );
+                }
+              } on AuthException catch (e) {
+                if (mounted) {
+                  String friendlyMessage = e.message;
+
+                  // Intercept the specific Supabase 'same_password' rejection
+                  if (e.message.contains('different from the old password') || e.message.contains('same_password')) {
+                    friendlyMessage = 'Your new password cannot be the same as your current password.';
+                  }
+
+                  ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text(friendlyMessage), backgroundColor: Colors.orange)
+                  );
+                }
+              } catch (e) {
+                // Fallback for generic network errors
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red)
+                  );
+                }
+              }
+            },
+            child: const Text('Update'),
+          )
+        ],
+      ),
+    );
   }
 
   @override
@@ -47,15 +154,19 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
 
   Future<void> _updateProfile() async {
     if (!_formKey.currentState!.validate()) return;
-
     setState(() => _isLoading = true);
     try {
-      final notifier = ref.read(profileProvider.notifier);
+      String? finalAvatarUrl = _currentAvatarUrl;
 
-      // Await the actual database operation
-      await notifier.updateProfile(
+      // Upload new image if one was taken
+      if (_newAvatarBytes != null) {
+        finalAvatarUrl = await SupabaseService().uploadAvatar('update.$_newAvatarExt', _newAvatarBytes!);
+      }
+
+      await ref.read(profileProvider.notifier).updateProfile(
         fullName: _nameController.text.trim(),
         phone: _phoneController.text.trim(),
+        avatarUrl: finalAvatarUrl,
       );
 
       if (mounted) {
@@ -151,6 +262,21 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                   style: Theme.of(context).textTheme.headlineSmall,
                 ),
                 const SizedBox(height: 24),
+                Center(
+                  child: GestureDetector(
+                    onTap: _pickImage,
+                    child: CircleAvatar(
+                      radius: 50,
+                      backgroundColor: Colors.grey[300],
+                      backgroundImage: _newAvatarBytes != null
+                          ? MemoryImage(_newAvatarBytes!)
+                          : (_currentAvatarUrl != null ? NetworkImage(_currentAvatarUrl!) as ImageProvider : null),
+                      child: _newAvatarBytes == null && _currentAvatarUrl == null
+                          ? const Icon(Icons.camera_alt, size: 40) : null,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 24),
                 TextFormField(
                   controller: _nameController,
                   decoration: const InputDecoration(
@@ -179,6 +305,12 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                   },
                 ),
                 const SizedBox(height: 32),
+                OutlinedButton.icon(
+                  onPressed: _changePasswordDialog,
+                  icon: const Icon(Icons.lock),
+                  label: const Text('Change Password'),
+                ),
+                const SizedBox(height: 16),
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(

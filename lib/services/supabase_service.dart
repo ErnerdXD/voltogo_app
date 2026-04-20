@@ -5,6 +5,7 @@ import 'package:voltogo_app/models/station_model.dart';
 import 'package:voltogo_app/models/reservation_model.dart';
 import 'package:voltogo_app/models/payment_model.dart';
 import 'package:voltogo_app/models/slot_model.dart';
+import 'dart:typed_data';
 
 
 class SupabaseService {
@@ -45,13 +46,28 @@ class SupabaseService {
 
   // --- USER SETUP (Module 1) ---
 
-  /// Complete user setup after signup
-  Future<void> setupUserAfterSignup(User authUser, {String? fullName}) async {
+  // --- STORAGE ---
+  /// Uploads an image byte array to Supabase Storage and returns the public URL
+  Future<String?> uploadAvatar(String fileName, Uint8List imageBytes) async {
     try {
-      // DEBUG: Verify we are actually authenticated
-      print('[DEBUG] Auth UID: ${authUser.id}');
-      print('[DEBUG] Current User Session: ${_client.auth.currentSession != null}');
+      final String path = '${DateTime.now().millisecondsSinceEpoch}_$fileName';
 
+      await _client.storage.from('avatars').uploadBinary(
+        path,
+        imageBytes,
+        fileOptions: const FileOptions(upsert: true),
+      );
+
+      return _client.storage.from('avatars').getPublicUrl(path);
+    } catch (e) {
+      print('[SupabaseService] Error uploading image: $e');
+      throw Exception('Failed to upload image.');
+    }
+  }
+
+  /// Complete user setup after signup
+  Future<void> setupUserAfterSignup(User authUser, {String? fullName, String? avatarUrl}) async {
+    try {
       // Step 1: Create the record in the 'public.users' table
       final userResponse = await _client.from('users').upsert(
         {
@@ -62,13 +78,13 @@ class SupabaseService {
       ).select('id').single();
 
       final String publicId = userResponse['id'];
-      print('[DEBUG] Public User ID Created/Found: $publicId');
 
       // Step 2: Create the profile using the PUBLIC ID, not the Auth ID
       await _client.from('profiles').insert({
         'user_id': publicId,
         'full_name': fullName ?? authUser.email?.split('@')[0] ?? 'User',
         'email': _client.auth.currentUser?.email,
+        'avatar_url': avatarUrl,
       });
 
       print('[SupabaseService] Setup complete for: $publicId');

@@ -3,25 +3,39 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-// --- THE LIVE METRICS PROVIDER ---
-// This safely counts how many rows exist in your tables without downloading all the data
-final adminMetricsProvider = FutureProvider.autoDispose<Map<String, int>>((ref) async {
+// --- THE ACTIONABLE METRICS PROVIDER ---
+final adminMetricsProvider = FutureProvider.autoDispose<Map<String, dynamic>>((ref) async {
   final client = Supabase.instance.client;
 
-  // Fetch total stations
-  final stations = await client.from('stations').select('id');
-  // Fetch total slots
-  final slots = await client.from('slots').select('id');
-  // Fetch active reservations (not completed, not cancelled)
+  // 1. Live Utilization (Active sessions right now)
   final activeReservations = await client.from('reservations')
       .select('id')
       .neq('status', 'completed')
       .neq('status', 'cancelled');
 
+  // 2. Needs Attention (Broken or offline chargers)
+  final brokenSlots = await client.from('slots')
+      .select('id')
+      .eq('status', 'maintenance');
+
+  // 3. Today's Revenue
+  // We get the start of the current day to filter payments
+  final now = DateTime.now();
+  final startOfDay = DateTime(now.year, now.month, now.day).toIso8601String();
+
+  final todayPayments = await client.from('payments')
+      .select('amount')
+      .gte('paid_at', startOfDay);
+
+  double dailyRevenue = 0.0;
+  for (var payment in todayPayments) {
+    dailyRevenue += (payment['amount'] as num?)?.toDouble() ?? 0.0;
+  }
+
   return {
-    'total_stations': stations.length,
-    'total_slots': slots.length,
-    'active_reservations': activeReservations.length,
+    'active_sessions': activeReservations.length,
+    'maintenance_slots': brokenSlots.length,
+    'today_revenue': dailyRevenue,
   };
 });
 // ---------------------------------
@@ -52,15 +66,15 @@ class AdminDashboardScreen extends ConsumerWidget {
             const Text('Network Overview', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
             const SizedBox(height: 16),
 
-            // --- LIVE METRICS BANNER ---
+            // --- ACTIONABLE METRICS BANNER ---
             metricsAsync.when(
               data: (metrics) => Row(
                 children: [
-                  Expanded(child: _MetricCard(title: 'Stations', count: metrics['total_stations'].toString(), icon: Icons.ev_station, color: Colors.blue)),
+                  Expanded(child: _MetricCard(title: 'Active\nSessions', count: metrics['active_sessions'].toString(), icon: Icons.bolt, color: Colors.blue)),
                   const SizedBox(width: 12),
-                  Expanded(child: _MetricCard(title: 'Slots', count: metrics['total_slots'].toString(), icon: Icons.bolt, color: Colors.orange)),
+                  Expanded(child: _MetricCard(title: 'Needs\nAttention', count: metrics['maintenance_slots'].toString(), icon: Icons.build_circle, color: Colors.orange)),
                   const SizedBox(width: 12),
-                  Expanded(child: _MetricCard(title: 'Active\nSessions', count: metrics['active_reservations'].toString(), icon: Icons.timer, color: Colors.green)),
+                  Expanded(child: _MetricCard(title: 'Today\'s\nRevenue', count: 'RM ${metrics['today_revenue'].toStringAsFixed(0)}', icon: Icons.payments, color: Colors.green)),
                 ],
               ),
               loading: () => const Center(child: Padding(padding: EdgeInsets.all(24.0), child: CircularProgressIndicator())),
@@ -80,19 +94,10 @@ class AdminDashboardScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 12),
             _AdminMenuTile(
-              icon: Icons.bolt,
+              icon: Icons.electrical_services,
               title: 'Manage Slots',
               description: 'Configure individual chargers and maintenance mode',
               onTap: () => context.push('/admin/slots'),
-            ),
-            const SizedBox(height: 12),
-            _AdminMenuTile(
-              icon: Icons.people,
-              title: 'User Management',
-              description: 'View registered members and override locks',
-              onTap: () {
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('User Management coming soon!')));
-              },
             ),
           ],
         ),
@@ -119,7 +124,7 @@ class _MetricCard extends StatelessWidget {
         children: [
           Icon(icon, color: color, size: 28),
           const SizedBox(height: 8),
-          Text(count, style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: color)),
+          Text(count, style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: color)),
           const SizedBox(height: 4),
           Text(title, textAlign: TextAlign.center, style: TextStyle(fontSize: 12, color: Colors.grey[800], fontWeight: FontWeight.w600)),
         ],
@@ -141,12 +146,12 @@ class _AdminMenuTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return Material(
       child: ListTile(
-        leading: Icon(icon, size: 32),
+        leading: Icon(icon, size: 32, color: Colors.grey[800]),
         title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
         subtitle: Text(description),
-        trailing: const Icon(Icons.arrow_forward_ios),
+        trailing: const Icon(Icons.arrow_forward_ios, size: 18),
         onTap: onTap,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         tileColor: Colors.grey[100],
       ),
     );
