@@ -4,63 +4,381 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
     <title>Voltogo – Charging Tracker</title>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body {
-          font-family: 'Segoe UI', Arial, sans-serif;
-          background: #0f1117;
-          color: white;
-          min-height: 100vh;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          padding: 24px 16px;
+        :root {
+            --bg: #080b12;
+            --surface: #0f1420;
+            --surface2: #161c2d;
+            --border: #1e2638;
+            --accent: #3de8ff;
+            --accent2: #7c6fff;
+            --green: #00e5a0;
+            --orange: #ff9f43;
+            --red: #ff5c5c;
+            --text: #e8edf5;
+            --muted: #4a5568;
+            --mono: 'Space Mono', monospace;
+            --sans: 'DM Sans', sans-serif;
         }
-        .logo { font-size: 22px; font-weight: 800; color: #4fc3f7; letter-spacing: 1px; margin-bottom: 20px; }
-        .logo span { color: #ffffff; }
-        .card { background: #1a1d27; border-radius: 20px; padding: 24px; width: 100%; max-width: 380px; margin-bottom: 16px; }
-        .section-label { font-size: 11px; color: #666; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
-        .station-name { font-size: 18px; font-weight: 700; color: #4fc3f7; margin-bottom: 4px; }
-        .station-address { font-size: 13px; color: #888; margin-bottom: 12px; }
-        .badges { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 4px; }
-        .badge { background: #252836; border: 1px solid #333; border-radius: 20px; padding: 4px 12px; font-size: 12px; color: #ccc; }
-        .status-badge { border-radius: 20px; padding: 4px 12px; font-size: 12px; font-weight: 600; }
-        .divider { border: none; border-top: 1px solid #2a2d3a; margin: 16px 0; }
-        .battery-wrap { display: flex; flex-direction: column; align-items: center; padding: 8px 0 16px; }
-        .ring-container { position: relative; width: 160px; height: 160px; margin-bottom: 12px; }
-        svg.ring { transform: rotate(-90deg); width: 160px; height: 160px; }
-        .ring-track { fill: none; stroke: #252836; stroke-width: 12; }
-        .ring-fill { fill: none; stroke: #4fc3f7; stroke-width: 12; stroke-linecap: round; stroke-dasharray: 408; stroke-dashoffset: 408; transition: stroke-dashoffset 0.8s ease; }
-        .ring-label { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-        .ring-pct { font-size: 38px; font-weight: 800; line-height: 1; }
-        .ring-sub { font-size: 12px; color: #888; margin-top: 4px; }
-        .charging-label { font-size: 13px; color: #4fc3f7; font-weight: 600; display: flex; align-items: center; gap: 6px; }
-        .dot { width: 8px; height: 8px; background: #4fc3f7; border-radius: 50%; animation: pulse 1.2s infinite; }
-        @keyframes pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.4; transform: scale(0.7); } }
-        .info-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #252836; font-size: 14px; }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: var(--sans);
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 0 0 48px;
+            position: relative;
+            overflow-x: hidden;
+        }
+
+        /* Background grid */
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background-image:
+                linear-gradient(rgba(61,232,255,0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(61,232,255,0.03) 1px, transparent 1px);
+            background-size: 40px 40px;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        /* Glow orb */
+        body::after {
+            content: '';
+            position: fixed;
+            top: -120px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 600px;
+            height: 400px;
+            background: radial-gradient(ellipse, rgba(61,232,255,0.08) 0%, transparent 70%);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .wrap {
+            width: 100%;
+            max-width: 420px;
+            padding: 0 16px;
+            position: relative;
+            z-index: 1;
+        }
+
+        /* Header */
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 24px 0 20px;
+        }
+
+        .logo {
+            font-family: var(--mono);
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--accent);
+            letter-spacing: -0.5px;
+        }
+
+        .logo span { color: #fff; }
+
+        .booking-id {
+            font-family: var(--mono);
+            font-size: 11px;
+            color: var(--muted);
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            padding: 4px 10px;
+            border-radius: 6px;
+        }
+
+        /* Cards */
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 12px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(61,232,255,0.3), transparent);
+        }
+
+        .section-label {
+            font-size: 10px;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            font-family: var(--mono);
+            margin-bottom: 10px;
+        }
+
+        .station-name {
+            font-size: 17px;
+            font-weight: 700;
+            color: var(--text);
+            margin-bottom: 4px;
+            line-height: 1.3;
+        }
+
+        .station-address {
+            font-size: 12px;
+            color: var(--muted);
+            margin-bottom: 14px;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .badges {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+
+        .badge {
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 3px 10px;
+            font-size: 11px;
+            color: #8899aa;
+            font-family: var(--mono);
+        }
+
+        .status-badge {
+            border-radius: 6px;
+            padding: 3px 10px;
+            font-size: 11px;
+            font-weight: 700;
+            font-family: var(--mono);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        /* Battery ring */
+        .battery-wrap {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 8px 0 20px;
+        }
+
+        .ring-container {
+            position: relative;
+            width: 180px;
+            height: 180px;
+            margin-bottom: 16px;
+        }
+
+        svg.ring {
+            transform: rotate(-90deg);
+            width: 180px;
+            height: 180px;
+            filter: drop-shadow(0 0 12px rgba(61,232,255,0.2));
+        }
+
+        .ring-track { fill: none; stroke: var(--surface2); stroke-width: 10; }
+        .ring-fill {
+            fill: none;
+            stroke: var(--accent);
+            stroke-width: 10;
+            stroke-linecap: round;
+            stroke-dasharray: 471;
+            stroke-dashoffset: 471;
+            transition: stroke-dashoffset 1s cubic-bezier(0.4,0,0.2,1), stroke 0.5s ease;
+        }
+
+        .ring-label {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .ring-pct {
+            font-family: var(--mono);
+            font-size: 40px;
+            font-weight: 700;
+            line-height: 1;
+            letter-spacing: -2px;
+        }
+
+        .ring-sub {
+            font-size: 11px;
+            color: var(--muted);
+            margin-top: 4px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            font-family: var(--mono);
+        }
+
+        /* Charging status indicator */
+        .charging-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            font-weight: 500;
+        }
+
+        .dot {
+            width: 8px;
+            height: 8px;
+            background: var(--green);
+            border-radius: 50%;
+            box-shadow: 0 0 8px var(--green);
+            animation: pulse 1.4s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); box-shadow: 0 0 8px currentColor; }
+            50% { opacity: 0.5; transform: scale(0.7); box-shadow: 0 0 2px currentColor; }
+        }
+
+        /* Divider */
+        .divider {
+            border: none;
+            border-top: 1px solid var(--border);
+            margin: 16px 0;
+        }
+
+        /* Info rows */
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 9px 0;
+            border-bottom: 1px solid var(--border);
+            font-size: 13px;
+        }
+
         .info-row:last-child { border-bottom: none; }
-        .info-key { color: #888; }
-        .info-val { font-weight: 600; color: #eee; }
-        .time-row { display: flex; justify-content: space-between; margin-top: 12px; }
-        .time-block { text-align: center; flex: 1; }
+        .info-key { color: var(--muted); }
+        .info-val { font-weight: 600; color: var(--text); font-family: var(--mono); font-size: 12px; }
+        .info-val.accent { color: var(--accent); }
+        .info-val.green { color: var(--green); }
+
+        /* Time bar */
+        .time-section { margin-top: 16px; }
+
+        .time-bar-wrap {
+            position: relative;
+            margin: 12px 0 8px;
+        }
+
+        .time-bar-bg {
+            height: 4px;
+            background: var(--surface2);
+            border-radius: 2px;
+            overflow: hidden;
+        }
+
+        .time-bar-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--accent2), var(--accent));
+            border-radius: 2px;
+            transition: width 1s ease;
+            width: 0%;
+        }
+
+        .time-labels {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 8px;
+        }
+
+        .time-block { text-align: center; }
         .time-block:first-child { text-align: left; }
         .time-block:last-child { text-align: right; }
-        .time-val { font-size: 20px; font-weight: 700; color: #fff; }
-        .time-key { font-size: 11px; color: #666; margin-top: 2px; }
-        .footer { font-size: 12px; color: #444; margin-top: 8px; text-align: center; }
-        .loading { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 60vh; gap: 16px; color: #888; }
-        .spinner { width: 40px; height: 40px; border: 4px solid #252836; border-top-color: #4fc3f7; border-radius: 50%; animation: spin 0.8s linear infinite; }
+        .time-val { font-family: var(--mono); font-size: 16px; font-weight: 700; color: var(--text); }
+        .time-key { font-size: 10px; color: var(--muted); margin-top: 2px; text-transform: uppercase; letter-spacing: 1px; }
+
+        /* Vehicle card */
+        .vehicle-plate {
+            font-family: var(--mono);
+            font-size: 20px;
+            font-weight: 700;
+            color: var(--text);
+            letter-spacing: 3px;
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 8px 16px;
+            display: inline-block;
+            margin-top: 8px;
+        }
+
+        /* Loading */
+        .loading {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 70vh;
+            gap: 20px;
+            color: var(--muted);
+            font-size: 13px;
+            font-family: var(--mono);
+        }
+
+        .spinner {
+            width: 36px;
+            height: 36px;
+            border: 2px solid var(--border);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+            box-shadow: 0 0 12px rgba(61,232,255,0.2);
+        }
+
         @keyframes spin { to { transform: rotate(360deg); } }
-        .error-card { background: #2a1a1a; border: 1px solid #f44336; border-radius: 20px; padding: 24px; width: 100%; max-width: 380px; text-align: center; color: #f44336; }
+
+        /* Error */
+        .error-card {
+            background: rgba(255,92,92,0.05);
+            border: 1px solid rgba(255,92,92,0.3);
+            border-radius: 16px;
+            padding: 32px 24px;
+            text-align: center;
+            color: var(--red);
+            margin-top: 32px;
+        }
+
+        .error-icon { font-size: 36px; margin-bottom: 12px; }
+        .error-title { font-weight: 700; font-size: 16px; margin-bottom: 8px; }
+        .error-msg { font-size: 13px; color: #8899aa; line-height: 1.6; }
     </style>
 </head>
 <body>
 
-<div class="logo">volt<span>ogo</span> ⚡</div>
-<div id="root">
-    <div class="loading">
-        <div class="spinner"></div>
-        <div>Loading charging session...</div>
+<div class="wrap">
+    <div class="header">
+        <div class="logo">volt<span>ogo</span> ⚡</div>
+        <div class="booking-id" id="bookingIdLabel">Loading...</div>
+    </div>
+    <div id="root">
+        <div class="loading">
+            <div class="spinner"></div>
+            <div>Loading session...</div>
+        </div>
     </div>
 </div>
 
@@ -68,231 +386,325 @@
     const SUPABASE_URL = 'https://ejeseyuqdubakwqnzjbz.supabase.co';
     const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVqZXNleXVxZHViYWt3cW56amJ6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ0MTI5NzIsImV4cCI6MjA4OTk4ODk3Mn0.wxNDkXiAAjxIvmHWCbJN7fwCVvGr2bYjE7N_2TZw_jc';
 
+    const HEADERS = {
+        'apikey': SUPABASE_ANON_KEY,
+        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+        'Content-Type': 'application/json'
+    };
+
     const params = new URLSearchParams(window.location.search);
     const resId = params.get('res_id');
 
-    async function fetchData() {
-      if (!resId) {
-        showError('No reservation ID provided.');
-        return;
-      }
-
-      try {
-        // Fetch reservation + slot + station
-        const resResp = await fetch(
-Onc          `${SUPABASE_URL}/rest/v1/reservations?id=eq.${resId}&select=id,status,start_time,end_time,current_battery,target_battery,final_battery,vehicle_id,slots(slot_code,connector_type,price_per_kwh,stations(name,address))`,
-          { headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` } }
-        );
-        const resData = await resResp.json();
-        if (!resData.length) { showError('Reservation not found.'); return; }
-        const res = resData[0];
-
-        // Fetch vehicle
-        let vehicle = null;
-        if (res.vehicle_id) {
-          const vResp = await fetch(
-            `${SUPABASE_URL}/rest/v1/vehicles?id=eq.${res.vehicle_id}&select=brand,model,plate_number,battery_capacity_kwh`,
-            { headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` } }
-          );
-          const vData = await vResp.json();
-          vehicle = vData[0] ?? null;
-        }
-
-        // Fetch payment
-        let payment = null;
-        const pResp = await fetch(
-          `${SUPABASE_URL}/rest/v1/payments?reservation_id=eq.${resId}&select=amount`,
-          { headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` } }
-        );
-        const pData = await pResp.json();
-        payment = pData[0] ?? null;
-
-        renderPage(res, vehicle, payment);
-      } catch (e) {
-        showError('Failed to load data: ' + e.message);
-      }
-    }
-
     function fmt(dtStr) {
-      if (!dtStr) return '--:--';
-      return new Date(dtStr).toLocaleTimeString('en-MY', { hour: '2-digit', minute: '2-digit' });
+        if (!dtStr) return '--:--';
+        try {
+            return new Date(dtStr).toLocaleTimeString('en-MY', { hour: '2-digit', minute: '2-digit' });
+        } catch { return '--:--'; }
     }
 
     function statusColor(status) {
-      if (status === 'active') return '#4caf50';
-      if (status === 'paid')   return '#4fc3f7';
-      return '#ff9800';
+        const s = (status || '').toLowerCase();
+        if (s === 'active')    return 'var(--green)';
+        if (s === 'paid')      return 'var(--accent)';
+        if (s === 'expired' || s === 'cancelled') return 'var(--red)';
+        return 'var(--orange)';
     }
 
-    function renderPage(res, vehicle, payment) {
-      const slot      = res.slots ?? {};
-      const station   = slot.stations ?? {};
-      const startBat  = res.current_battery ?? 30;
-      const targetBat = res.target_battery ?? 100;
-      const finalBat  = res.final_battery ?? null;
-      const capacity  = vehicle?.battery_capacity_kwh ?? 40;
-      const price     = slot.price_per_kwh ?? 0;
-      const color     = statusColor(res.status);
-      const startTime = res.start_time ? new Date(res.start_time) : null;
-      const endTime = res.end_time ? new Date(res.end_time) : null;
+    async function apiFetch(url) {
+        const resp = await fetch(url, { headers: HEADERS });
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}: ${resp.statusText}`);
+        return resp.json();
+    }
 
-      const root = document.getElementById('root');
-      // Calculate price paid (from payment or estimate)
-      let pricePaid = payment?.amount;
-      if (!pricePaid && startBat != null && targetBat != null && capacity && price) {
-        const kwh = ((targetBat - startBat) / 100) * capacity;
-        pricePaid = (kwh * price).toFixed(2);
-      }
+    async function fetchData() {
+        if (!resId) { showError('No reservation ID in URL.', 'Add ?res_id=... to the URL.'); return; }
 
-      root.innerHTML = `
-        <!-- Station card -->
-        <div class="card">
-          <div class="section-label">Charging at</div>
-          <div class="station-name">${station.name ?? 'Charging Station'}</div>
-          ${station.address ? `<div class="station-address">📍 ${station.address}</div>` : ''}
-          <div class="badges">
-            ${slot.slot_code    ? `<span class="badge">🔌 ${slot.slot_code}</span>` : ''}
-            ${slot.connector_type ? `<span class="badge">${slot.connector_type}</span>` : ''}
-            ${price             ? `<span class="badge">RM${Number(price).toFixed(2)}/kWh</span>` : ''}
-            <span class="badge status-badge" style="background:${color}22;border:1px solid ${color};color:${color}">${res.status ?? ''}</span>
-          </div>
-        </div>
+        document.getElementById('bookingIdLabel').textContent = resId.substring(0, 8).toUpperCase();
 
-        <!-- Battery card -->
-        <div class="card">
-          <div class="battery-wrap">
-            <div class="ring-container">
-              <svg class="ring" viewBox="0 0 160 160">
-                <circle class="ring-track" cx="80" cy="80" r="65"/>
-                <circle class="ring-fill" id="ringFill" cx="80" cy="80" r="65"/>
-              </svg>
-              <div class="ring-label">
-                <div class="ring-pct" id="pct">0%</div>
-                <div class="ring-sub">battery</div>
-              </div>
-            </div>
-            <div class="charging-label"><div class="dot"></div> Charging in progress</div>
-          </div>
+        try {
+            // Step 1: fetch reservation
+            const resData = await apiFetch(
+                `${SUPABASE_URL}/rest/v1/reservations?id=eq.${encodeURIComponent(resId)}&select=id,status,start_time,end_time,current_battery,target_battery,final_battery,vehicle_id,slot_id`
+            );
+            if (!resData || resData.length === 0) {
+                showError('Reservation not found.', `ID: ${resId.substring(0, 8).toUpperCase()}`);
+                return;
+            }
+            const res = resData[0];
 
-          <hr class="divider"/>
+            // Step 2: fetch slot
+            let slot = null;
+            if (res.slot_id) {
+                try {
+                    const slotData = await apiFetch(
+                        `${SUPABASE_URL}/rest/v1/slots?id=eq.${encodeURIComponent(res.slot_id)}&select=id,slot_code,connector_type,price_per_kwh,stations_id`
+                    );
+                    slot = slotData[0] ?? null;
+                } catch (e) {
+                    console.warn('Could not fetch slot:', e);
+                }
+            }
 
-          <div class="info-row"><span class="info-key">Start battery</span><span class="info-val">${startBat}%</span></div>
-          <div class="info-row"><span class="info-key">Target battery</span><span class="info-val">${targetBat}%</span></div>
-          ${finalBat !== null ? `<div class="info-row"><span class="info-key">Final battery</span><span class="info-val">${finalBat}%</span></div>` : ''}
-          <div class="info-row"><span class="info-key">Capacity</span><span class="info-val">${capacity} kWh</span></div>
-          <div class="info-row"><span class="info-key">Est. added energy</span><span class="info-val" id="kwh">-- kWh</span></div>
-          <div class="info-row"><span class="info-key">Est. cost so far</span><span class="info-val" id="cost">RM --</span></div>
-          <div class="info-row"><span class="info-key">Booking paid</span><span class="info-val" id="paid">RM${pricePaid ? Number(pricePaid).toFixed(2) : '--'}</span></div>
+            // Step 3: fetch station
+            let station = null;
+            if (slot && slot.stations_id) {
+                try {
+                    const stData = await apiFetch(
+                        `${SUPABASE_URL}/rest/v1/stations?id=eq.${encodeURIComponent(slot.stations_id)}&select=id,name,address`
+                    );
+                    station = stData[0] ?? null;
+                } catch (e) {
+                    console.warn('Could not fetch station:', e);
+                }
+            }
 
-          <hr class="divider"/>
+            // Step 4: fetch vehicle
+            let vehicle = null;
+            if (res.vehicle_id) {
+                try {
+                    const vData = await apiFetch(
+                        `${SUPABASE_URL}/rest/v1/vehicles?id=eq.${encodeURIComponent(res.vehicle_id)}&select=brand,model,plate_number,battery_capacity_kwh`
+                    );
+                    vehicle = vData[0] ?? null;
+                } catch (e) {
+                    console.warn('Could not fetch vehicle:', e);
+                }
+            }
 
-          <div class="time-row">
-            <div class="time-block"><div class="time-val">${fmt(res.start_time)}</div><div class="time-key">Start</div></div>
-            <div class="time-block"><div class="time-val">${fmt(res.end_time)}</div><div class="time-key">End</div></div>
-          </div>
-        </div>
+            // Step 5: fetch payment
+            let payment = null;
+            try {
+                const pData = await apiFetch(
+                    `${SUPABASE_URL}/rest/v1/payments?reservation_id=eq.${encodeURIComponent(resId)}&select=amount`
+                );
+                payment = pData[0] ?? null;
+            } catch (e) {
+                console.warn('Could not fetch payment:', e);
+            }
 
-        <!-- Vehicle card -->
-        ${vehicle ? `
-        <div class="card">
-          <div class="section-label">Vehicle</div>
-          ${vehicle.brand || vehicle.model ? `<div class="info-row"><span class="info-key">Car</span><span class="info-val">${vehicle.brand ?? ''} ${vehicle.model ?? ''}</span></div>` : ''}
-          ${vehicle.plate_number ? `<div class="info-row"><span class="info-key">Plate</span><span class="info-val">${vehicle.plate_number}</span></div>` : ''}
-        </div>` : ''}
+            renderPage(res, slot, station, vehicle, payment);
 
-        <div class="footer">Booking ID: ${resId.substring(0, 8).toUpperCase()}</div>
-      `;
-
-      // Animate ring
-      const CIRC = 2 * Math.PI * 65;
-      const ring  = document.getElementById('ringFill');
-      const pctEl = document.getElementById('pct');
-      const kwhEl = document.getElementById('kwh');
-      const costEl = document.getElementById('cost');
-      const paidEl = document.getElementById('paid');
-      let battery = startBat;
-      const maxBattery = finalBat !== null ? finalBat : targetBat;
-
-      function setRing(p) {
-        ring.style.strokeDasharray  = CIRC;
-        ring.style.strokeDashoffset = CIRC * (1 - (p - startBat) / (maxBattery - startBat));
-        ring.style.stroke = p < 20 ? '#f44336' : p < 50 ? '#ff9800' : p >= 80 ? '#4caf50' : '#4fc3f7';
-      }
-
-      function update() {
-        pctEl.textContent  = battery + '%';
-        const added = ((battery - startBat) / 100) * capacity;
-        kwhEl.textContent  = added.toFixed(1) + ' kWh';
-        costEl.textContent = 'RM ' + (added * price).toFixed(2);
-        setRing(battery);
-      }
-
-      // Time logic
-      const now = new Date();
-      let chargingState = '';
-      if (!startTime || !endTime) {
-        chargingState = 'invalid';
-      } else if (now < startTime) {
-        chargingState = 'not_started';
-      } else if (now > endTime) {
-        chargingState = 'ended';
-      } else if (startBat >= targetBat) {
-        chargingState = 'already_full';
-      } else {
-        chargingState = 'charging';
-      }
-
-      function setChargingLabel(msg) {
-        const label = document.querySelector('.charging-label');
-        if (label) label.innerHTML = msg;
-      }
-
-      update();
-      if (chargingState === 'invalid') {
-        setChargingLabel('<span style="color:#f44336">Invalid reservation time</span>');
-      } else if (chargingState === 'not_started') {
-        setChargingLabel('<span style="color:#ff9800">Charging not started yet</span>');
-      } else if (chargingState === 'ended') {
-        battery = finalBat !== null ? finalBat : targetBat;
-        update();
-        setChargingLabel('<span style="color:#f44336">Session ended</span>');
-      } else if (chargingState === 'already_full') {
-        battery = targetBat;
-        update();
-        setChargingLabel('<span style="color:#4caf50">Already at target</span>');
-      } else {
-        // Animate battery from startBat to targetBat over the session duration
-        const totalMs = endTime - startTime;
-        const stepMs = totalMs / (targetBat - startBat);
-        let interval = null;
-        function animate() {
-          const now = new Date();
-          if (now > endTime || battery >= targetBat) {
-            battery = Math.min(targetBat, battery);
-            update();
-            setChargingLabel('<span style="color:#4caf50">Charging complete</span>');
-            clearInterval(interval);
-            return;
-          }
-          // Calculate battery based on time elapsed
-          const elapsed = now - startTime;
-          const pct = startBat + Math.floor(((targetBat - startBat) * elapsed) / totalMs);
-          battery = Math.min(targetBat, pct);
-          update();
-          setChargingLabel('<div class="dot"></div> Charging in progress');
+        } catch (e) {
+            console.error('fetchData error:', e);
+            showError('Failed to load data.', e.message || 'Unknown error. Check console for details.');
         }
-        animate();
-        interval = setInterval(animate, 1000);
-      }
     }
 
-    function showError(msg) {
-      document.getElementById('root').innerHTML = `
-        <div class="error-card">
-          <div style="font-size:32px;margin-bottom:12px">⚠️</div>
-          <div style="font-weight:700;margin-bottom:8px">Error</div>
-          <div style="color:#ccc;font-size:14px">${msg}</div>
-        </div>`;
+    function renderPage(res, slot, station, vehicle, payment) {
+        const startBat  = res.current_battery ?? 20;
+        const targetBat = res.target_battery ?? 100;
+        const finalBat  = res.final_battery ?? null;
+        const capacity  = vehicle?.battery_capacity_kwh ?? 40;
+        const price     = slot?.price_per_kwh ?? 0;
+        const color     = statusColor(res.status);
+
+        const startTime = res.start_time ? new Date(res.start_time) : null;
+        const endTime   = res.end_time   ? new Date(res.end_time)   : null;
+
+        // Price paid
+        let pricePaid = payment?.amount;
+        if (!pricePaid && startBat != null && targetBat != null && capacity && price) {
+            const kwh = ((targetBat - startBat) / 100) * capacity;
+            pricePaid = (kwh * price).toFixed(2);
+        }
+
+        const root = document.getElementById('root');
+        root.innerHTML = `
+            <!-- Station card -->
+            <div class="card">
+                <div class="section-label">Charging at</div>
+                <div class="station-name">${station?.name ?? 'Charging Station'}</div>
+                ${station?.address ? `<div class="station-address">📍 ${station.address}</div>` : ''}
+                <div class="badges">
+                    ${slot?.slot_code      ? `<span class="badge">🔌 ${slot.slot_code}</span>` : ''}
+                    ${slot?.connector_type ? `<span class="badge">${slot.connector_type}</span>` : ''}
+                    ${price                ? `<span class="badge">RM${Number(price).toFixed(2)}/kWh</span>` : ''}
+                    <span class="badge status-badge" style="background:${color}18;border-color:${color}55;color:${color}">${res.status ?? 'unknown'}</span>
+                </div>
+            </div>
+
+            <!-- Battery card -->
+            <div class="card">
+                <div class="battery-wrap">
+                    <div class="ring-container">
+                        <svg class="ring" viewBox="0 0 180 180">
+                            <circle class="ring-track" cx="90" cy="90" r="75"/>
+                            <circle class="ring-fill" id="ringFill" cx="90" cy="90" r="75"/>
+                        </svg>
+                        <div class="ring-label">
+                            <div class="ring-pct" id="pct">0%</div>
+                            <div class="ring-sub">battery</div>
+                        </div>
+                    </div>
+                    <div class="charging-status" id="chargingLabel">
+                        <div class="dot"></div>
+                        <span>Charging in progress</span>
+                    </div>
+                </div>
+
+                <hr class="divider"/>
+
+                <div class="info-row"><span class="info-key">Start battery</span><span class="info-val">${startBat}%</span></div>
+                <div class="info-row"><span class="info-key">Target battery</span><span class="info-val">${targetBat}%</span></div>
+                ${finalBat !== null ? `<div class="info-row"><span class="info-key">Final battery</span><span class="info-val green">${finalBat}%</span></div>` : ''}
+                <div class="info-row"><span class="info-key">Battery capacity</span><span class="info-val">${capacity} kWh</span></div>
+                <div class="info-row"><span class="info-key">Energy added</span><span class="info-val accent" id="kwh">-- kWh</span></div>
+                <div class="info-row"><span class="info-key">Est. cost so far</span><span class="info-val" id="cost">RM --</span></div>
+                <div class="info-row"><span class="info-key">Booking paid</span><span class="info-val green">RM${pricePaid ? Number(pricePaid).toFixed(2) : '--'}</span></div>
+
+                <hr class="divider"/>
+
+                <div class="time-section">
+                    <div class="time-bar-wrap">
+                        <div class="time-bar-bg">
+                            <div class="time-bar-fill" id="timeBar"></div>
+                        </div>
+                    </div>
+                    <div class="time-labels">
+                        <div class="time-block">
+                            <div class="time-val">${fmt(res.start_time)}</div>
+                            <div class="time-key">Start</div>
+                        </div>
+                        <div class="time-block" style="text-align:center">
+                            <div class="time-val" id="elapsedLabel" style="font-size:12px;color:var(--muted)">--</div>
+                            <div class="time-key">Remaining</div>
+                        </div>
+                        <div class="time-block">
+                            <div class="time-val">${fmt(res.end_time)}</div>
+                            <div class="time-key">End</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Vehicle card -->
+            ${vehicle ? `
+            <div class="card">
+                <div class="section-label">Vehicle</div>
+                <div class="station-name" style="font-size:15px">${vehicle.brand ?? ''} ${vehicle.model ?? ''}</div>
+                ${vehicle.plate_number ? `<div class="vehicle-plate">${vehicle.plate_number}</div>` : ''}
+            </div>` : ''}
+        `;
+
+        // ── Animation logic ──────────────────────────────────────────────
+        const CIRC = 2 * Math.PI * 75;
+        const ringEl   = document.getElementById('ringFill');
+        const pctEl    = document.getElementById('pct');
+        const kwhEl    = document.getElementById('kwh');
+        const costEl   = document.getElementById('cost');
+        const labelEl  = document.getElementById('chargingLabel');
+        const timeBar  = document.getElementById('timeBar');
+        const elapsed  = document.getElementById('elapsedLabel');
+
+        let battery = startBat;
+        const maxBat = (finalBat !== null) ? finalBat : targetBat;
+
+        function setRing(p) {
+            const pct = Math.max(0, Math.min(1, (p - startBat) / Math.max(1, maxBat - startBat)));
+            ringEl.style.strokeDasharray  = CIRC;
+            ringEl.style.strokeDashoffset = CIRC * (1 - pct);
+            ringEl.style.stroke =
+                p < 20 ? 'var(--red)' :
+                p < 50 ? 'var(--orange)' :
+                p >= 80 ? 'var(--green)' :
+                'var(--accent)';
+            pctEl.style.color =
+                p < 20 ? 'var(--red)' :
+                p >= 80 ? 'var(--green)' :
+                'var(--text)';
+        }
+
+        function setLabel(html, color) {
+            labelEl.innerHTML = html;
+            if (color) labelEl.style.color = color;
+        }
+
+        function update(bat) {
+            pctEl.textContent = bat + '%';
+            const added = ((bat - startBat) / 100) * capacity;
+            kwhEl.textContent  = added.toFixed(1) + ' kWh';
+            costEl.textContent = 'RM ' + (added * price).toFixed(2);
+            setRing(bat);
+        }
+
+        function updateTimebar() {
+            if (!startTime || !endTime) return;
+            const now = new Date();
+            const total  = endTime - startTime;
+            const soFar  = Math.min(Math.max(now - startTime, 0), total);
+            const pct    = (soFar / total) * 100;
+            if (timeBar) timeBar.style.width = pct.toFixed(1) + '%';
+
+            const remaining = endTime - now;
+            if (elapsed) {
+                if (remaining <= 0) {
+                    elapsed.textContent = '0m 0s';
+                } else {
+                    const m = Math.floor(remaining / 60000);
+                    const s = Math.floor((remaining % 60000) / 1000);
+                    elapsed.textContent = m > 0 ? `${m}m ${s}s` : `${s}s`;
+                }
+            }
+        }
+
+        // Determine state
+        const now = new Date();
+        let state = 'charging';
+        if (!startTime || !endTime)    state = 'invalid';
+        else if (now < startTime)      state = 'not_started';
+        else if (now >= endTime)       state = 'ended';
+        else if (startBat >= targetBat) state = 'full';
+
+        update(battery);
+        updateTimebar();
+
+        if (state === 'invalid') {
+            setLabel('<span>Invalid session time</span>', 'var(--red)');
+        } else if (state === 'not_started') {
+            const diff = startTime - now;
+            const m = Math.floor(diff / 60000);
+            setLabel(`<span>Starts in ~${m} min</span>`, 'var(--orange)');
+        } else if (state === 'ended') {
+            battery = (finalBat !== null) ? finalBat : targetBat;
+            update(battery);
+            setLabel('<span>Session ended</span>', 'var(--muted)');
+        } else if (state === 'full') {
+            battery = targetBat;
+            update(battery);
+            setLabel('<span>Already at target</span>', 'var(--green)');
+        } else {
+            // Live animation
+            const totalMs = endTime - startTime;
+
+            let interval = setInterval(() => {
+                const now2 = new Date();
+                updateTimebar();
+
+                if (now2 >= endTime || battery >= targetBat) {
+                    battery = Math.min(targetBat, battery);
+                    update(battery);
+                    setLabel('<span>Charging complete ✓</span>', 'var(--green)');
+                    clearInterval(interval);
+                    return;
+                }
+
+                const elapsed2 = now2 - startTime;
+                battery = startBat + Math.floor(((targetBat - startBat) * elapsed2) / totalMs);
+                battery = Math.min(targetBat, Math.max(startBat, battery));
+                update(battery);
+                setLabel('<div class="dot" style="background:var(--green);box-shadow:0 0 8px var(--green)"></div><span>Charging in progress</span>', 'var(--green)');
+            }, 1000);
+        }
+    }
+
+    function showError(title, detail) {
+        document.getElementById('bookingIdLabel').textContent = 'ERROR';
+        document.getElementById('root').innerHTML = `
+            <div class="error-card">
+                <div class="error-icon">⚠️</div>
+                <div class="error-title">${title}</div>
+                <div class="error-msg">${detail ?? ''}</div>
+            </div>`;
     }
 
     fetchData();
